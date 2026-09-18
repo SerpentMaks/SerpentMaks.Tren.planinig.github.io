@@ -38,7 +38,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; margin: 0; }
+html, body { width: 100%; height: 100%; margin: 0; }
 html { height: 100%; height: -webkit-fill-available; }
 body {
   min-height: 100%;
@@ -48,7 +48,7 @@ body {
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
-  touch-action: manipulation;
+  touch-action: auto;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -58,26 +58,44 @@ button, input, textarea, select {
 }
 
 #app {
+  width: 100%;
   height: 100%;
+  height: 100dvh;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   padding-top: var(--safe-top);
+  overflow: hidden;
 }
 
 #screens {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+    radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--blue) 8%, transparent), transparent 30%),
+    var(--bg);
 }
 
 .screen {
   display: none;
-  height: 100%;
-  overflow-y: auto;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 14px 16px calc(var(--tabbar-h) + 20px);
-  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 18px 16px calc(var(--tabbar-h) + 28px);
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
 }
 .screen.active { display: block; }
 
@@ -708,4 +726,62 @@ button, input, textarea, select {
 @media (hover: hover) {
   .btn--primary:hover { filter: brightness(1.06); }
   .btn--ghost:hover, .tabbar__item:hover, .chip:hover, .ex-item:hover, .history-item:hover, .template-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+}
+
+
+/* iPhone polish + reliable vertical scrolling */
+@supports (-webkit-touch-callout: none) {
+  .screen {
+    padding-bottom: calc(var(--tabbar-h) + 34px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.page-header {
+  position: sticky;
+  top: -18px;
+  z-index: 5;
+  background: linear-gradient(var(--bg) 72%, transparent);
+  margin-left: -2px;
+  margin-right: -2px;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.card,
+.stat,
+.history-item,
+.calendar,
+.field,
+.ex-item {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.section-title {
+  margin-top: 20px;
+}
+
+.search {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+.tabbar {
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+}
+
+@media (min-width: 700px) {
+  #app {
+    max-width: 520px;
+    margin: 0 auto;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+
+  .tabbar {
+    left: 50%;
+    right: auto;
+    width: min(520px, 100%);
+    transform: translateX(-50%);
+  }
 }
