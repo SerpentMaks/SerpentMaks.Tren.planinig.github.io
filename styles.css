@@ -881,3 +881,11 @@ button, input, textarea, select {
 .chip.active { background:var(--accent); color:var(--accent-text); }
 .ex-card { background:var(--accent); }
 .check-btn.done { background:var(--accent); }
+
+
+/* Interaction layer: keep screens and navigation reliably clickable on iOS */
+#screens { z-index: 1; }
+.screen.active { z-index: 2; pointer-events: auto; }
+.screen:not(.active) { pointer-events: none; }
+.tabbar { z-index: 100; pointer-events: auto; }
+.tabbar__item { position: relative; z-index: 101; pointer-events: auto; }
