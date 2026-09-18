@@ -302,7 +302,8 @@
   }
 
   function updateWorkoutBadge() {
-    $("#workout-badge").classList.toggle("live", Boolean(db.activeWorkout));
+    const badge = $("#workout-badge");
+    if (badge) badge.classList.toggle("live", Boolean(db.activeWorkout));
   }
 
   function ensureWorkout() {
