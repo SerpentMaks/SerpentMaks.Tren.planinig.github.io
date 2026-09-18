@@ -279,6 +279,7 @@
 
   function updateRestBar() {
     const bar = $("#rest-bar");
+    if (!bar) return;
     if (!state.rest.active) {
       bar.classList.add("hidden");
       return;
@@ -1107,7 +1108,8 @@
     }
   });
 
-  $("#rest-skip").addEventListener("click", stopRest);
+  const restSkip = $("#rest-skip");
+  if (restSkip) restSkip.addEventListener("click", stopRest);
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
