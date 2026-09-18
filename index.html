@@ -1,55 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Дневник" />
-  <meta name="theme-color" content="#121316" />
-  <meta name="format-detection" content="telephone=no" />
-  <title>Дневник тренировок</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b0d10">
+  <title>Тренер — дневник тренировок</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css?v=7">
 </head>
 <body>
   <div id="app">
-    <div id="rest-bar" class="rest-bar hidden" aria-live="polite">
-      <div class="rest-bar__info">
-        <span>Отдых</span>
-        <strong id="rest-time">1:30</strong>
-      </div>
-      <div class="rest-bar__track"><div id="rest-fill" class="rest-bar__fill"></div></div>
-      <button type="button" class="rest-bar__skip" id="rest-skip">Пропустить</button>
-    </div>
+    <header class="topbar">
+      <div class="topbar__brand">ТРЕНЕР</div>
+      <div id="active-pill" class="active-pill is-hidden"></div>
+    </header>
 
     <main id="screens">
-      <section class="screen active" id="screen-home" data-tab="home"></section>
-      <section class="screen" id="screen-history" data-tab="history"></section>
+      <section class="screen" id="screen-home" data-tab="home"></section>
+      <section class="screen" id="screen-progress" data-tab="progress"></section>
       <section class="screen" id="screen-workout" data-tab="workout"></section>
       <section class="screen" id="screen-exercises" data-tab="exercises"></section>
       <section class="screen" id="screen-profile" data-tab="profile"></section>
     </main>
 
-    <nav class="tabbar" aria-label="Основная навигация">
-      <button type="button" class="tabbar__item active" data-nav="home"><span class="tab-icon">⌂</span><span>Сегодня</span></button>
-      <button type="button" class="tabbar__item" data-nav="history"><span class="tab-icon">◷</span><span>История</span></button>
-      <button type="button" class="tabbar__item tabbar__item--action" data-nav="workout"><span class="tab-plus">+</span><span>Тренировка</span></button>
-      <button type="button" class="tabbar__item" data-nav="exercises"><span class="tab-icon">≡</span><span>Упражнения</span></button>
-      <button type="button" class="tabbar__item" data-nav="profile"><span class="tab-icon">○</span><span>Профиль</span></button>
+    <nav class="tabbar" aria-label="Навигация">
+      <button class="tabbar__item" data-nav="home"><span class="tabbar__icon">⌂</span><span>Сегодня</span></button>
+      <button class="tabbar__item" data-nav="progress"><span class="tabbar__icon">↗</span><span>Прогресс</span></button>
+      <button class="tabbar__item tabbar__item--main" data-nav="workout"><span class="tabbar__plus">+</span><span>Тренировка</span></button>
+      <button class="tabbar__item" data-nav="exercises"><span class="tabbar__icon">≡</span><span>Упражнения</span></button>
+      <button class="tabbar__item" data-nav="profile"><span class="tabbar__icon">○</span><span>Профиль</span></button>
     </nav>
   </div>
 
-  <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true"></div>
-  <div id="toast" class="toast hidden" role="status"></div>
-  <div id="keypad" class="keypad hidden"></div>
+  <div id="sheet" class="sheet is-hidden" aria-hidden="true"></div>
+  <div id="toast" class="toast is-hidden" aria-live="polite"></div>
 
-  <script src="./app.js?v=6"></script>
+  <script src="./app.js?v=7"></script>
 </body>
 </html>
