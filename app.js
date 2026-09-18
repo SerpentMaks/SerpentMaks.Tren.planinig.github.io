@@ -184,45 +184,45 @@
   function renderHome(){
     const count=weekWorkouts(), goal=Math.max(1,Number(db.settings.weeklyGoal)||3), pct=Math.min(100,Math.round(count/goal*100));
     const last=db.workouts[0], active=db.activeWorkout, metric=db.metrics.at(-1);
-    $("#screen-home").innerHTML=\`
+    $("#screen-home").innerHTML=`
       <div class="container">
         <div class="hero">
           <div class="hero__row">
-            <div><div class="kicker">Сегодня</div><h1 class="hero__title">\${greeting()}</h1><p class="subtitle hero__sub">\${active?"Тренировка уже идёт.":"Готов к следующей?"}</p></div>
+            <div><div class="kicker">Сегодня</div><h1 class="hero__title">${greeting()}</h1><p class="subtitle hero__sub">${active?"Тренировка уже идёт.":"Готов к следующей?"}</p></div>
             <div class="hero__mark">Т</div>
           </div>
         </div>
-        <button class="card hero-cta" data-act="\${active?"continue-workout":"start-empty"}">
+        <button class="card hero-cta" data-act="${active?"continue-workout":"start-empty"}">
           <div class="hero-cta__copy">
-            <div class="kicker">\${active?"В ПРОЦЕССЕ":"БЫСТРЫЙ СТАРТ"}</div>
-            <h2>\${active?esc(active.name):"Начать тренировку"}</h2>
-            <p>\${active?"Продолжить с последнего подхода":"Пустая тренировка с умными подсказками по прошлым результатам"}</p>
+            <div class="kicker">${active?"В ПРОЦЕССЕ":"БЫСТРЫЙ СТАРТ"}</div>
+            <h2>${active?esc(active.name):"Начать тренировку"}</h2>
+            <p>${active?"Продолжить с последнего подхода":"Пустая тренировка с умными подсказками по прошлым результатам"}</p>
           </div>
           <span class="hero-cta__button">→</span>
         </button>
 
         <div class="stats">
-          <div class="card stat"><span class="stat__label">Тренировки</span><strong class="stat__value">\${count}</strong><span class="stat__hint">за неделю</span></div>
-          <div class="card stat"><span class="stat__label">Подходы</span><strong class="stat__value">\${last?doneSets(last):"—"}</strong><span class="stat__hint">в последней</span></div>
-          <div class="card stat"><span class="stat__label">Вес</span><strong class="stat__value">\${metric?toDisplayWeight(metric.weight):"—"}</strong><span class="stat__hint">\${metric?weightLabel():"добавь"} </span></div>
+          <div class="card stat"><span class="stat__label">Тренировки</span><strong class="stat__value">${count}</strong><span class="stat__hint">за неделю</span></div>
+          <div class="card stat"><span class="stat__label">Подходы</span><strong class="stat__value">${last?doneSets(last):"—"}</strong><span class="stat__hint">в последней</span></div>
+          <div class="card stat"><span class="stat__label">Вес</span><strong class="stat__value">${metric?toDisplayWeight(metric.weight):"—"}</strong><span class="stat__hint">${metric?weightLabel():"добавь"} </span></div>
         </div>
 
         <div class="card progress-card">
-          <div class="progress-card__head"><span>Ритм недели</span><b>\${count}/\${goal}</b></div>
-          <div class="progress"><span style="width:\${pct}%"></span></div>
-          <div class="progress-card__foot">\${count>=goal?"Цель выполнена":"Ещё "+(goal-count)+" "+plural(goal-count,"тренировка","тренировки","тренировок")}</div>
+          <div class="progress-card__head"><span>Ритм недели</span><b>${count}/${goal}</b></div>
+          <div class="progress"><span style="width:${pct}%"></span></div>
+          <div class="progress-card__foot">${count>=goal?"Цель выполнена":"Ещё "+(goal-count)+" "+plural(goal-count,"тренировка","тренировки","тренировок")}</div>
         </div>
 
         <div class="section-head"><h2>Планы</h2><button class="link" data-act="new-template">Создать</button></div>
         <div class="plans">
-          \${db.templates.map(t=>\`<button class="plan" data-act="start-template" data-id="\${t.id}"><span class="plan__tag">ПЛАН</span><h3>\${esc(t.name)}</h3><p>\${t.exerciseIds.length} упражнений · открыть</p></button>\`).join("")}
+          ${db.templates.map(t=>`<button class="plan" data-act="start-template" data-id="${t.id}"><span class="plan__tag">ПЛАН</span><h3>${esc(t.name)}</h3><p>${t.exerciseIds.length} упражнений · открыть</p></button>`).join("")}
         </div>
 
         <div class="section-head"><h2>Последняя тренировка</h2><button class="link" data-nav="progress">Все</button></div>
-        \${last?\`<button class="card list-card workout-preview" data-act="open-workout" data-id="\${last.id}">
-          <span class="workout-preview__icon">↗</span><span class="workout-preview__main"><b>\${esc(last.name)}</b><span>\${fmtDate(last.finishedAt)} · \${fmtTime(last.durationSec||0)} · \${round(toDisplayWeight(volume(last)),0)||0} \${weightLabel()}</span></span><span>›</span>
-        </button>\`:\`<div class="empty-state"><b>История пока пустая</b>Заверши первую тренировку, чтобы увидеть здесь результат.</div>\`}
-      </div>\`;
+        ${last?`<button class="card list-card workout-preview" data-act="open-workout" data-id="${last.id}">
+          <span class="workout-preview__icon">↗</span><span class="workout-preview__main"><b>${esc(last.name)}</b><span>${fmtDate(last.finishedAt)} · ${fmtTime(last.durationSec||0)} · ${round(toDisplayWeight(volume(last)),0)||0} ${weightLabel()}</span></span><span>›</span>
+        </button>`:`<div class="empty-state"><b>История пока пустая</b>Заверши первую тренировку, чтобы увидеть здесь результат.</div>`}
+      </div>`;
   }
 
   function renderProgress(){
@@ -231,112 +231,112 @@
     const workoutDays=new Set(db.workouts.map(w=>new Date(w.finishedAt).toISOString().slice(0,10)));
     const cells=[];
     for(let i=0;i<offset;i++)cells.push({n:new Date(y,m,0).getDate()-offset+i+1,muted:true});
-    for(let n=1;n<=days;n++){const iso=\`\${y}-\${String(m+1).padStart(2,"0")}-\${String(n).padStart(2,"0")}\`;cells.push({n,iso,muted:false,done:workoutDays.has(iso),selected:iso===state.selectedDay})}
+    for(let n=1;n<=days;n++){const iso=`${y}-${String(m+1).padStart(2,"0")}-${String(n).padStart(2,"0")}`;cells.push({n,iso,muted:false,done:workoutDays.has(iso),selected:iso===state.selectedDay})}
     while(cells.length%7)cells.push({n:cells.length-offset-days+1,muted:true});
     const selected=db.workouts.filter(w=>new Date(w.finishedAt).toISOString().slice(0,10)===state.selectedDay);
     const recent=db.workouts.slice(0,12);
     const totalVolume=db.workouts.reduce((s,w)=>s+volume(w),0);
-    $("#screen-progress").innerHTML=\`
+    $("#screen-progress").innerHTML=`
       <div class="container">
         <div class="screen-title"><div class="kicker">Аналитика</div><h1>Прогресс</h1><p class="subtitle" style="margin-top:7px">Тренировки, объём и регулярность.</p></div>
         <div class="stats">
-          <div class="card stat"><span class="stat__label">Всего</span><strong class="stat__value">\${db.workouts.length}</strong><span class="stat__hint">тренировок</span></div>
-          <div class="card stat"><span class="stat__label">Объём</span><strong class="stat__value">\${round(toDisplayWeight(totalVolume),0)||0}</strong><span class="stat__hint">\${weightLabel()}</span></div>
-          <div class="card stat"><span class="stat__label">Неделя</span><strong class="stat__value">\${weekWorkouts()}</strong><span class="stat__hint">сейчас</span></div>
+          <div class="card stat"><span class="stat__label">Всего</span><strong class="stat__value">${db.workouts.length}</strong><span class="stat__hint">тренировок</span></div>
+          <div class="card stat"><span class="stat__label">Объём</span><strong class="stat__value">${round(toDisplayWeight(totalVolume),0)||0}</strong><span class="stat__hint">${weightLabel()}</span></div>
+          <div class="card stat"><span class="stat__label">Неделя</span><strong class="stat__value">${weekWorkouts()}</strong><span class="stat__hint">сейчас</span></div>
         </div>
         <div class="section-head"><h2>Календарь</h2></div>
         <div class="card calendar">
-          <div class="calendar__head"><button class="calendar__nav" data-act="month-prev">‹</button><span class="calendar__month">\${first.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar__nav" data-act="month-next">›</button></div>
-          <div class="calendar__grid">\${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(x=>\`<div class="calendar__dow">\${x}</div>\`).join("")}\${cells.map(c=>\`<button class="day \${c.muted?"muted":""} \${c.selected?"selected":""} \${c.done?"done":""}" \${c.muted?"disabled":""} data-act="pick-day" data-iso="\${c.iso||""}">\${c.n}</button>\`).join("")}</div>
+          <div class="calendar__head"><button class="calendar__nav" data-act="month-prev">‹</button><span class="calendar__month">${first.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar__nav" data-act="month-next">›</button></div>
+          <div class="calendar__grid">${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(x=>`<div class="calendar__dow">${x}</div>`).join("")}${cells.map(c=>`<button class="day ${c.muted?"muted":""} ${c.selected?"selected":""} ${c.done?"done":""}" ${c.muted?"disabled":""} data-act="pick-day" data-iso="${c.iso||""}">${c.n}</button>`).join("")}</div>
         </div>
-        <div class="section-head"><h2>\${new Date(state.selectedDay+"T12:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}</h2></div>
-        \${selected.length?selected.map(historyItem).join(""):\`<div class="empty-state">Нет тренировки в этот день.</div>\`}
+        <div class="section-head"><h2>${new Date(state.selectedDay+"T12:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}</h2></div>
+        ${selected.length?selected.map(historyItem).join(""):`<div class="empty-state">Нет тренировки в этот день.</div>`}
         <div class="section-head"><h2>Последние</h2></div>
-        <div class="recent-grid">\${recent.length?recent.map(historyItem).join(""):\`<div class="empty-state">Пока нет записей.</div>\`}</div>
-      </div>\`;
+        <div class="recent-grid">${recent.length?recent.map(historyItem).join(""):`<div class="empty-state">Пока нет записей.</div>`}</div>
+      </div>`;
   }
 
   function historyItem(w){
-    return \`<button class="recent-item" data-act="open-workout" data-id="\${w.id}"><b>\${esc(w.name)}</b><span>\${fmtDate(w.finishedAt)} · \${fmtTime(w.durationSec||0)} · \${doneSets(w)} подходов · \${round(toDisplayWeight(volume(w)),0)||0} \${weightLabel()}</span></button>\`;
+    return `<button class="recent-item" data-act="open-workout" data-id="${w.id}"><b>${esc(w.name)}</b><span>${fmtDate(w.finishedAt)} · ${fmtTime(w.durationSec||0)} · ${doneSets(w)} подходов · ${round(toDisplayWeight(volume(w)),0)||0} ${weightLabel()}</span></button>`;
   }
 
   function renderWorkout(){
     const w=db.activeWorkout;
     if(!w){
-      $("#screen-workout").innerHTML=\`
+      $("#screen-workout").innerHTML=`
         <div class="container">
           <div class="screen-title"><div class="kicker">Рабочий экран</div><h1>Тренировка</h1><p class="subtitle" style="margin-top:7px">Здесь проходит вся тренировка — без лишних экранов.</p></div>
           <div class="stack">
             <button class="button button--primary" data-act="start-empty">Начать пустую</button>
-            \${db.templates.slice(0,3).map(t=>\`<button class="card list-card workout-preview" data-act="start-template" data-id="\${t.id}"><span class="workout-preview__icon">＋</span><span class="workout-preview__main"><b>\${esc(t.name)}</b><span>\${t.exerciseIds.length} упражнений</span></span><span>›</span></button>\`).join("")}
+            ${db.templates.slice(0,3).map(t=>`<button class="card list-card workout-preview" data-act="start-template" data-id="${t.id}"><span class="workout-preview__icon">＋</span><span class="workout-preview__main"><b>${esc(t.name)}</b><span>${t.exerciseIds.length} упражнений</span></span><span>›</span></button>`).join("")}
           </div>
           <div class="section-head"><h2>Что получаетшся</h2></div>
           <div class="notice">После каждого подхода приложение запустит таймер отдыха. В новых тренировках автоматически подставится прошлый рабочий вес и количество повторений.</div>
-        </div>\`;
+        </div>`;
       return;
     }
     const total=w.exercises.reduce((s,e)=>s+e.sets.length,0), completed=doneSets(w), vol=volume(w);
-    $("#screen-workout").innerHTML=\`
+    $("#screen-workout").innerHTML=`
       <div class="container">
         <div class="screen-title">
-          <div class="row row--between"><div style="min-width:0"><input id="workout-name" value="\${esc(w.name)}" style="width:100%;border:0;background:none;outline:none;font-size:30px;font-weight:900;letter-spacing:-1.4px"></div><span style="color:var(--accent);font-weight:900;font-size:13px" id="duration">\${fmtTime((Date.now()-w.startedAt)/1000)}</span></div>
-          <p class="subtitle" style="margin-top:7px">\${completed}/\${total} подходов выполнено · \${round(toDisplayWeight(vol),0)||0} \${weightLabel()}</p>
+          <div class="row row--between"><div style="min-width:0"><input id="workout-name" value="${esc(w.name)}" style="width:100%;border:0;background:none;outline:none;font-size:30px;font-weight:900;letter-spacing:-1.4px"></div><span style="color:var(--accent);font-weight:900;font-size:13px" id="duration">${fmtTime((Date.now()-w.startedAt)/1000)}</span></div>
+          <p class="subtitle" style="margin-top:7px">${completed}/${total} подходов выполнено · ${round(toDisplayWeight(vol),0)||0} ${weightLabel()}</p>
         </div>
         <div class="stack">
-          \${w.exercises.length?w.exercises.map(exerciseBlock).join(""):\`<div class="empty-state"><b>Добавь первое упражнение</b>Начни с кнопки ниже.</div>\`}
+          ${w.exercises.length?w.exercises.map(exerciseBlock).join(""):`<div class="empty-state"><b>Добавь первое упражнение</b>Начни с кнопки ниже.</div>`}
         </div>
         <div class="workout-bottom">
           <button class="button button--secondary" data-act="add-exercise">＋ Добавить упражнение</button>
           <button class="button button--primary" data-act="finish-workout">Завершить тренировку</button>
         </div>
-      </div>\`;
+      </div>`;
   }
 
   function exerciseBlock(ex){
     const prev=lastSets(ex.exerciseId,db.activeWorkout?.startedAt);
-    const prevText=prev.length?"Прошлый раз: "+prev.map(s=>\`\${toDisplayWeight(s.weight)}×\${s.reps}\`).join(" · "):"Нет прошлых данных";
-    return \`<div class="card detail" data-ex="\${ex.id}">
-      <div class="detail__head"><div><div class="detail__name">\${esc(ex.name)}</div><div class="detail__meta">\${prevText}</div></div><button class="link" data-act="exercise-history" data-eid="\${ex.exerciseId}">История</button></div>
+    const prevText=prev.length?"Прошлый раз: "+prev.map(s=>`${toDisplayWeight(s.weight)}×${s.reps}`).join(" · "):"Нет прошлых данных";
+    return `<div class="card detail" data-ex="${ex.id}">
+      <div class="detail__head"><div><div class="detail__name">${esc(ex.name)}</div><div class="detail__meta">${prevText}</div></div><button class="link" data-act="exercise-history" data-eid="${ex.exerciseId}">История</button></div>
       <div class="set-table"><div class="set-head"><span>#</span><span>Вес</span><span>Повт.</span><span></span></div>
-      \${ex.sets.map(s=>\`<div class="set-row"><div class="set-num">\${s.n}</div>
-        <input type="number" step="0.5" min="0" inputmode="decimal" data-kind="weight" data-ex="\${ex.id}" data-set="\${s.id}" value="\${s.weight===""?"":toDisplayWeight(s.weight)}" placeholder="—">
-        <input type="number" min="0" inputmode="numeric" data-kind="reps" data-ex="\${ex.id}" data-set="\${s.id}" value="\${s.reps===""?"":s.reps}" placeholder="—">
-        <button class="set-check \${s.done?"done":""}" data-act="toggle-set" data-ex="\${ex.id}" data-set="\${s.id}">\${s.done?"✓":"○"}</button>
-      </div>\`).join("")}</div>
-      <button class="add-set" data-act="add-set" data-ex="\${ex.id}">＋ Подход</button>
-      </div>\`;
+      ${ex.sets.map(s=>`<div class="set-row"><div class="set-num">${s.n}</div>
+        <input type="number" step="0.5" min="0" inputmode="decimal" data-kind="weight" data-ex="${ex.id}" data-set="${s.id}" value="${s.weight===""?"":toDisplayWeight(s.weight)}" placeholder="—">
+        <input type="number" min="0" inputmode="numeric" data-kind="reps" data-ex="${ex.id}" data-set="${s.id}" value="${s.reps===""?"":s.reps}" placeholder="—">
+        <button class="set-check ${s.done?"done":""}" data-act="toggle-set" data-ex="${ex.id}" data-set="${s.id}">${s.done?"✓":"○"}</button>
+      </div>`).join("")}</div>
+      <button class="add-set" data-act="add-set" data-ex="${ex.id}">＋ Подход</button>
+      </div>`;
   }
 
   function renderExercises(){
     const q=state.search.trim().toLowerCase();
     const items=db.exercises.filter(e=>(state.filter==="all"||e.muscle===state.filter)&&(!q||e.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
-    $("#screen-exercises").innerHTML=\`
+    $("#screen-exercises").innerHTML=`
       <div class="container">
         <div class="screen-title"><div class="row row--between"><div><div class="kicker">Библиотека</div><h1>Упражнения</h1></div><button class="button button--small" data-act="new-exercise">＋ Добавить</button></div></div>
-        <input id="exercise-search" class="search" placeholder="Поиск упражнения" value="\${esc(state.search)}">
-        <div class="chips"><button class="chip \${state.filter==="all"?"active":""}" data-act="filter" data-filter="all">Все</button>\${MUSCLES.map(m=>\`<button class="chip \${state.filter===m[0]?"active":""}" data-act="filter" data-filter="\${m[0]}">\${m[1]}</button>\`).join("")}</div>
-        <div class="exercise-list">\${items.map(e=>\`<button class="exercise-item" data-act="exercise-info" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}\${e.custom?" · своё":""}</span></span><span class="exercise-item__chev">›</span></button>\`).join("")||\`<div class="empty-state">Ничего не найдено.</div>\`}</div>
-      </div>\`;
+        <input id="exercise-search" class="search" placeholder="Поиск упражнения" value="${esc(state.search)}">
+        <div class="chips"><button class="chip ${state.filter==="all"?"active":""}" data-act="filter" data-filter="all">Все</button>${MUSCLES.map(m=>`<button class="chip ${state.filter===m[0]?"active":""}" data-act="filter" data-filter="${m[0]}">${m[1]}</button>`).join("")}</div>
+        <div class="exercise-list">${items.map(e=>`<button class="exercise-item" data-act="exercise-info" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}${e.custom?" · своё":""}</span></span><span class="exercise-item__chev">›</span></button>`).join("")||`<div class="empty-state">Ничего не найдено.</div>`}</div>
+      </div>`;
     const s=$("#exercise-search"); if(s){s.addEventListener("input",e=>{state.search=e.target.value;renderExercises();const n=$("#exercise-search");n?.focus();if(n)n.setSelectionRange(n.value.length,n.value.length);});}
   }
 
   function renderProfile(){
     const last=db.metrics.at(-1);
-    $("#screen-profile").innerHTML=\`
+    $("#screen-profile").innerHTML=`
       <div class="container">
         <div class="screen-title"><div class="kicker">Настройки</div><h1>Профиль</h1><p class="subtitle" style="margin-top:7px">Данные тела, таймер отдыха и копия дневника.</p></div>
         <div class="section-head"><h2>Замеры</h2></div>
         <div class="form-grid">
-          <div class="field"><label>Вес (\${weightLabel()})</label><input id="body-weight" inputmode="decimal" value="\${last?toDisplayWeight(last.weight):""}" placeholder="—"></div>
-          <div class="field"><label>Талия (см)</label><input id="body-waist" inputmode="decimal" value="\${last?.waist??""}" placeholder="—"></div>
+          <div class="field"><label>Вес (${weightLabel()})</label><input id="body-weight" inputmode="decimal" value="${last?toDisplayWeight(last.weight):""}" placeholder="—"></div>
+          <div class="field"><label>Талия (см)</label><input id="body-waist" inputmode="decimal" value="${last?.waist??""}" placeholder="—"></div>
         </div>
         <button class="button button--primary" data-act="save-metrics" style="margin-top:9px">Сохранить замеры</button>
 
         <div class="section-head"><h2>Настройки</h2></div>
         <div class="stack">
-          <div class="field"><label>Тема</label><select id="theme"><option value="dark" \${db.settings.theme==="dark"?"selected":""}>Тёмная</option><option value="light" \${db.settings.theme==="light"?"selected":""}>Светлая</option></select></div>
-          <div class="field"><label>Отдых между подходами, сек</label><input id="rest-sec" inputmode="numeric" value="\${db.settings.restSeconds}"></div>
-          <div class="field"><label>Цель тренировок в неделю</label><input id="weekly-goal" inputmode="numeric" value="\${db.settings.weeklyGoal}"></div>
+          <div class="field"><label>Тема</label><select id="theme"><option value="dark" ${db.settings.theme==="dark"?"selected":""}>Тёмная</option><option value="light" ${db.settings.theme==="light"?"selected":""}>Светлая</option></select></div>
+          <div class="field"><label>Отдых между подходами, сек</label><input id="rest-sec" inputmode="numeric" value="${db.settings.restSeconds}"></div>
+          <div class="field"><label>Цель тренировок в неделю</label><input id="weekly-goal" inputmode="numeric" value="${db.settings.weeklyGoal}"></div>
           <button class="button button--secondary" data-act="save-settings">Сохранить настройки</button>
         </div>
 
@@ -346,58 +346,58 @@
           <button class="button button--secondary" data-act="import">Импортировать дневник</button>
           <input id="import-file" type="file" accept=".json,application/json" hidden>
         </div>
-      </div>\`;
+      </div>`;
   }
 
   function showExerciseInfo(id){
     const e=findExercise(id); if(!e)return;
     const rows=db.workouts.filter(w=>w.exercises?.some(x=>x.exerciseId===id)).slice(0,8);
-    openSheet(\`
-      <div class="sheet__title">\${esc(e.name)}</div>
-      <div class="subtitle">\${muscle(e.muscle)} · \${e.custom?"своё упражнение":"базовое"}</div>
+    openSheet(`
+      <div class="sheet__title">${esc(e.name)}</div>
+      <div class="subtitle">${muscle(e.muscle)} · ${e.custom?"своё упражнение":"базовое"}</div>
       <div class="section-head" style="margin-top:18px"><h2>История</h2></div>
-      \${rows.length?rows.map(w=>{const ex=w.exercises.find(x=>x.exerciseId===id);return \`<div class="rec-card" style="margin-bottom:8px"><b>\${fmtDate(w.finishedAt)}</b><span>\${ex.sets.filter(s=>s.done).map(s=>\`\${toDisplayWeight(s.weight)} × \${s.reps}\`).join(" · ")||"Нет выполненных подходов"}</span></div>\`}).join(""):\`<div class="empty-state">Истории ещё нет.</div>\`}
+      ${rows.length?rows.map(w=>{const ex=w.exercises.find(x=>x.exerciseId===id);return `<div class="rec-card" style="margin-bottom:8px"><b>${fmtDate(w.finishedAt)}</b><span>${ex.sets.filter(s=>s.done).map(s=>`${toDisplayWeight(s.weight)} × ${s.reps}`).join(" · ")||"Нет выполненных подходов"}</span></div>`}).join(""):`<div class="empty-state">Истории ещё нет.</div>`}
       <div class="stack" style="margin-top:12px">
-        <button class="button button--primary" data-act="use-exercise" data-id="\${id}">\${db.activeWorkout?"Добавить в текущую":"Начать с этого упражнения"}</button>
+        <button class="button button--primary" data-act="use-exercise" data-id="${id}">${db.activeWorkout?"Добавить в текущую":"Начать с этого упражнения"}</button>
         <button class="button button--secondary" data-act="close-sheet">Закрыть</button>
-      </div>\`);
+      </div>`);
   }
 
   function showAddExercise(){
     const items=[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru"));
-    openSheet(\`
+    openSheet(`
       <div class="sheet__title">Добавить упражнение</div>
       <input id="sheet-search" class="search" placeholder="Найти упражнение">
-      <div class="exercise-list" id="sheet-list" style="margin-top:10px">\${items.map(e=>\`<button class="exercise-item" data-act="add-ex" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}</span></span><span>＋</span></button>\`).join("")}</div>\`);
-    const s=$("#sheet-search"); s?.addEventListener("input",e=>{const q=e.target.value.toLowerCase();$("#sheet-list").innerHTML=items.filter(x=>x.name.toLowerCase().includes(q)).map(e=>\`<button class="exercise-item" data-act="add-ex" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}</span></span><span>＋</span></button>\`).join("")});
+      <div class="exercise-list" id="sheet-list" style="margin-top:10px">${items.map(e=>`<button class="exercise-item" data-act="add-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span>＋</span></button>`).join("")}</div>`);
+    const s=$("#sheet-search"); s?.addEventListener("input",e=>{const q=e.target.value.toLowerCase();$("#sheet-list").innerHTML=items.filter(x=>x.name.toLowerCase().includes(q)).map(e=>`<button class="exercise-item" data-act="add-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span>＋</span></button>`).join("")});
   }
 
   function showNewExercise(){
-    openSheet(\`
+    openSheet(`
       <div class="sheet__title">Новое упражнение</div>
       <div class="field" style="margin-top:10px"><label>Название</label><input id="new-ex-name" placeholder="Например, жим в хаммере"></div>
-      <div class="field" style="margin-top:9px"><label>Мышечная группа</label><select id="new-ex-muscle">\${MUSCLES.map(m=>\`<option value="\${m[0]}">\${m[1]}</option>\`).join("")}</select></div>
-      <button class="button button--primary" style="margin-top:10px" data-act="create-exercise">Сохранить</button>\`);
+      <div class="field" style="margin-top:9px"><label>Мышечная группа</label><select id="new-ex-muscle">${MUSCLES.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("")}</select></div>
+      <button class="button button--primary" style="margin-top:10px" data-act="create-exercise">Сохранить</button>`);
   }
 
   function showNewTemplate(){
-    openSheet(\`
+    openSheet(`
       <div class="sheet__title">Новый план</div>
       <div class="field" style="margin-top:10px"><label>Название</label><input id="template-name" placeholder="Например, Push"></div>
       <div class="section-head"><h2>Упражнения</h2></div>
-      <div class="exercise-list" id="template-picks">\${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>\`<button class="exercise-item" data-act="toggle-template-ex" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}</span></span><span data-mark="\${e.id}" style="font-weight:900"></span></button>\`).join("")}</div>
-      <button class="button button--primary" style="margin-top:10px" data-act="create-template">Создать план</button>\`);
+      <div class="exercise-list" id="template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>`<button class="exercise-item" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span data-mark="${e.id}" style="font-weight:900"></span></button>`).join("")}</div>
+      <button class="button button--primary" style="margin-top:10px" data-act="create-template">Создать план</button>`);
     $("#sheet")._selected=new Set();
   }
 
   function showWorkoutDetail(id){
     const w=db.workouts.find(x=>x.id===id); if(!w)return;
-    openSheet(\`
-      <div class="sheet__title">\${esc(w.name)}</div>
-      <div class="subtitle">\${new Date(w.finishedAt).toLocaleString("ru-RU")} · \${fmtTime(w.durationSec||0)} · \${round(toDisplayWeight(volume(w)),0)||0} \${weightLabel()}</div>
+    openSheet(`
+      <div class="sheet__title">${esc(w.name)}</div>
+      <div class="subtitle">${new Date(w.finishedAt).toLocaleString("ru-RU")} · ${fmtTime(w.durationSec||0)} · ${round(toDisplayWeight(volume(w)),0)||0} ${weightLabel()}</div>
       <div class="section-head"><h2>Упражнения</h2></div>
-      <div class="stack">\${w.exercises.map(ex=>\`<div class="rec-card"><b>\${esc(ex.name)}</b><span>\${ex.sets.filter(s=>s.done).map(s=>\`\${toDisplayWeight(s.weight)} × \${s.reps}\`).join(" · ")||"Нет выполненных подходов"}</span></div>\`).join("")}</div>
-      <button class="button button--secondary" style="margin-top:12px" data-act="close-sheet">Закрыть</button>\`);
+      <div class="stack">${w.exercises.map(ex=>`<div class="rec-card"><b>${esc(ex.name)}</b><span>${ex.sets.filter(s=>s.done).map(s=>`${toDisplayWeight(s.weight)} × ${s.reps}`).join(" · ")||"Нет выполненных подходов"}</span></div>`).join("")}</div>
+      <button class="button button--secondary" style="margin-top:12px" data-act="close-sheet">Закрыть</button>`);
   }
 
   function saveMetrics(){
@@ -450,7 +450,7 @@
     if(a==="use-exercise"){ if(db.activeWorkout)addExercise(id);else{closeSheet();ensureWorkout();addExercise(id)} return}
     if(a==="new-exercise"){showNewExercise();return}
     if(a==="create-exercise"){createExercise();return}
-    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);const mark=document.querySelector(\`[data-mark="\${id}"]\`);if(mark)mark.textContent=set.has(id)?"✓":"";return}
+    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);const mark=document.querySelector(`[data-mark="${id}"]`);if(mark)mark.textContent=set.has(id)?"✓":"";return}
     if(a==="create-template"){createTemplate();return}
     if(a==="toggle-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===act.dataset.ex), s=ex?.sets.find(x=>x.id===act.dataset.set); if(!s)return;
@@ -459,7 +459,7 @@
     if(a==="add-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===id);if(!ex)return;const last=ex.sets.at(-1);ex.sets.push({id:uid(),n:ex.sets.length+1,weight:last?.weight??"",reps:last?.reps??"",done:false});save();renderWorkout();return;
     }
-    if(a==="finish-workout"){openSheet(\`<div class="sheet__title">Завершить тренировку?</div><div class="subtitle">Все сохранится на этом устройстве.</div><div class="stack" style="margin-top:14px"><button class="button button--primary" data-act="confirm-finish">Завершить</button><button class="button button--secondary" data-act="close-sheet">Продолжить</button></div>\`);return}
+    if(a==="finish-workout"){openSheet(`<div class="sheet__title">Завершить тренировку?</div><div class="subtitle">Все сохранится на этом устройстве.</div><div class="stack" style="margin-top:14px"><button class="button button--primary" data-act="confirm-finish">Завершить</button><button class="button button--secondary" data-act="close-sheet">Продолжить</button></div>`);return}
     if(a==="confirm-finish"){finishWorkout();return}
     if(a==="month-prev"){state.month.setMonth(state.month.getMonth()-1);renderProgress();return}
     if(a==="month-next"){state.month.setMonth(state.month.getMonth()+1);renderProgress();return}
