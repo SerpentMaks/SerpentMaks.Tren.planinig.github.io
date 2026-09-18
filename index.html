@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Дневник" />
+  <meta name="theme-color" content="#121316" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>Дневник тренировок</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="rest-bar" class="rest-bar hidden" aria-live="polite">
+      <div class="rest-bar__info">
+        <span>Отдых</span>
+        <strong id="rest-time">1:30</strong>
+      </div>
+      <div class="rest-bar__track"><div id="rest-fill" class="rest-bar__fill"></div></div>
+      <button type="button" class="rest-bar__skip" id="rest-skip">Пропустить</button>
+    </div>
+
+    <main id="screens">
+      <section class="screen active" id="screen-home" data-tab="home"></section>
+      <section class="screen" id="screen-history" data-tab="history"></section>
+      <section class="screen" id="screen-workout" data-tab="workout"></section>
+      <section class="screen" id="screen-exercises" data-tab="exercises"></section>
+      <section class="screen" id="screen-profile" data-tab="profile"></section>
+    </main>
+
+    <nav class="tabbar" aria-label="Основная навигация">
+      <button type="button" class="tabbar__item active" data-nav="home">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+        <span>Главная</span>
+      </button>
+      <button type="button" class="tabbar__item" data-nav="history">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        <span>История</span>
+      </button>
+      <button type="button" class="tabbar__item tabbar__item--center" data-nav="workout">
+        <span class="tabbar__plus" id="workout-badge">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h3v16H7zM14 4h3v16h-3zM4 10h16v4H4z"/></svg>
+        </span>
+        <span>Тренировка</span>
+      </button>
+      <button type="button" class="tabbar__item" data-nav="exercises">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
+        <span>Упражнения</span>
+      </button>
+      <button type="button" class="tabbar__item" data-nav="profile">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8"/></svg>
+        <span>Профиль</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true"></div>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <div id="keypad" class="keypad hidden"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
