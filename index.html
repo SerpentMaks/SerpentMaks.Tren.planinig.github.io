@@ -38,22 +38,11 @@
     </main>
 
     <nav class="tabbar" aria-label="Основная навигация">
-      <button type="button" class="tabbar__item active" data-nav="home">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
-        <span>Сегодня</span>
-      </button>
-      <button type="button" class="tabbar__item" data-nav="history">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
-        <span>История</span>
-      </button>
-      <button type="button" class="tabbar__item" data-nav="exercises">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
-        <span>Упражнения</span>
-      </button>
-      <button type="button" class="tabbar__item" data-nav="profile">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8"/></svg>
-        <span>Профиль</span>
-      </button>
+      <button type="button" class="tabbar__item active" data-nav="home"><span class="tab-icon">⌂</span><span>Сегодня</span></button>
+      <button type="button" class="tabbar__item" data-nav="history"><span class="tab-icon">◷</span><span>История</span></button>
+      <button type="button" class="tabbar__item tabbar__item--action" data-nav="workout"><span class="tab-plus">+</span><span>Тренировка</span></button>
+      <button type="button" class="tabbar__item" data-nav="exercises"><span class="tab-icon">≡</span><span>Упражнения</span></button>
+      <button type="button" class="tabbar__item" data-nav="profile"><span class="tab-icon">○</span><span>Профиль</span></button>
     </nav>
   </div>
 
@@ -61,6 +50,6 @@
   <div id="toast" class="toast hidden" role="status"></div>
   <div id="keypad" class="keypad hidden"></div>
 
-  <script src="./app.js?v=5"></script>
+  <script src="./app.js?v=6"></script>
 </body>
 </html>
