@@ -1,1127 +1,498 @@
 (() => {
-  const STORAGE_KEY = "dnevnik_tren_v1";
+  "use strict";
+
+  const KEY = "dnevnik_tren_v1";
   const MUSCLES = [
-    { id: "chest", name: "Грудь" },
-    { id: "back", name: "Спина" },
-    { id: "legs", name: "Ноги" },
-    { id: "shoulders", name: "Плечи" },
-    { id: "arms", name: "Руки" },
-    { id: "core", name: "Кор" }
+    ["chest","Грудь"],["back","Спина"],["legs","Ноги"],
+    ["shoulders","Плечи"],["arms","Руки"],["core","Кор"]
+  ];
+  const DEFAULTS = [
+    ["Жим штанги лёжа","chest"],["Жим гантелей лёжа","chest"],["Жим на наклонной скамье","chest"],
+    ["Разведения гантелей","chest"],["Отжимания на брусьях","chest"],["Кроссовер","chest"],
+    ["Тяга штанги в наклоне","back"],["Подтягивания","back"],["Тяга верхнего блока","back"],
+    ["Тяга горизонтального блока","back"],["Становая тяга","back"],["Тяга гантели в наклоне","back"],
+    ["Гиперэкстензия","back"],["Приседания со штангой","legs"],["Жим ногами","legs"],
+    ["Выпады","legs"],["Румынская тяга","legs"],["Разгибания ног","legs"],["Сгибания ног","legs"],
+    ["Подъёмы на носки","legs"],["Жим штанги стоя","shoulders"],["Жим гантелей сидя","shoulders"],
+    ["Махи в стороны","shoulders"],["Махи в наклоне","shoulders"],["Тяга к подбородку","shoulders"],
+    ["Подъём штанги на бицепс","arms"],["Молотковые сгибания","arms"],["Французский жим","arms"],
+    ["Разгибания на блоке","arms"],["Отжимания от скамьи","arms"],["Скручивания","core"],
+    ["Планка","core"],["Подъёмы ног в висе","core"],["Русские скручивания","core"]
   ];
 
-  const DEFAULT_EXERCISES = [
-    ["Жим штанги лёжа", "chest"],
-    ["Жим гантелей лёжа", "chest"],
-    ["Жим на наклонной скамье", "chest"],
-    ["Разведения гантелей", "chest"],
-    ["Отжимания на брусьях", "chest"],
-    ["Кроссовер", "chest"],
-    ["Тяга штанги в наклоне", "back"],
-    ["Подтягивания", "back"],
-    ["Тяга верхнего блока", "back"],
-    ["Тяга горизонтального блока", "back"],
-    ["Становая тяга", "back"],
-    ["Тяга гантели в наклоне", "back"],
-    ["Гиперэкстензия", "back"],
-    ["Приседания со штангой", "legs"],
-    ["Жим ногами", "legs"],
-    ["Выпады", "legs"],
-    ["Румынская тяга", "legs"],
-    ["Разгибания ног", "legs"],
-    ["Сгибания ног", "legs"],
-    ["Подъёмы на носки", "legs"],
-    ["Жим штанги стоя", "shoulders"],
-    ["Жим гантелей сидя", "shoulders"],
-    ["Махи в стороны", "shoulders"],
-    ["Махи в наклоне", "shoulders"],
-    ["Тяга к подбородку", "shoulders"],
-    ["Подъём штанги на бицепс", "arms"],
-    ["Молотковые сгибания", "arms"],
-    ["Французский жим", "arms"],
-    ["Разгибания на блоке", "arms"],
-    ["Отжимания от скамьи", "arms"],
-    ["Скручивания", "core"],
-    ["Планка", "core"],
-    ["Подъёмы ног в висе", "core"],
-    ["Русские скручивания", "core"]
-  ];
-
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-  const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  const todayISO = () => new Date().toISOString().slice(0, 10);
-
-  const state = {
-    tab: "home",
-    cal: new Date(),
-    selectedDay: todayISO(),
-    muscleFilter: "all",
-    search: "",
-    keypad: null,
-    rest: { active: false, left: 0, total: 90, timer: null },
-    durationTimer: null,
-    pickMode: null
+  const $ = (s,r=document) => r.querySelector(s);
+  const $$ = (s,r=document) => [...r.querySelectorAll(s)];
+  const uid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2);
+  const today = () => new Date().toISOString().slice(0,10);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const muscle = id => MUSCLES.find(x => x[0] === id)?.[1] || id;
+  const fmtTime = sec => {
+    let s=Math.max(0,Math.floor(Number(sec)||0)), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60;
+    return h ? h+":"+String(m).padStart(2,"0")+":"+String(r).padStart(2,"0") : m+":"+String(r).padStart(2,"0");
+  };
+  const fmtDate = ts => new Date(ts).toLocaleDateString("ru-RU",{day:"numeric",month:"short"});
+  const round = (n,d=1) => Math.round(n*10**d)/10;
+  const plural = (n,a,b,c) => {
+    const v=Math.abs(n)%100, x=v%10;
+    return v>10&&v<20?c:x===1?a:(x>1&&x<5?b:c);
   };
 
-  function seed() {
-    const exercises = DEFAULT_EXERCISES.map(([name, muscle]) => ({
-      id: uid(), name, muscle, custom: false
-    }));
-    const byName = (n) => exercises.find((e) => e.name === n).id;
+  function createSeed(){
+    const exercises=DEFAULTS.map(([name,m])=>({id:uid(),name,muscle:m,custom:false}));
+    const id=n=>exercises.find(e=>e.name===n)?.id;
     return {
-      settings: { theme: "dark", restSeconds: 90, units: "kg" },
+      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3},
       exercises,
-      templates: [
-        {
-          id: uid(),
-          name: "Грудь и трицепс",
-          exerciseIds: ["Жим штанги лёжа", "Жим гантелей лёжа", "Разведения гантелей", "Французский жим", "Разгибания на блоке"].map(byName)
-        },
-        {
-          id: uid(),
-          name: "Спина и бицепс",
-          exerciseIds: ["Подтягивания", "Тяга штанги в наклоне", "Тяга горизонтального блока", "Подъём штанги на бицепс", "Молотковые сгибания"].map(byName)
-        },
-        {
-          id: uid(),
-          name: "День ног",
-          exerciseIds: ["Приседания со штангой", "Жим ногами", "Румынская тяга", "Выпады", "Подъёмы на носки"].map(byName)
-        }
+      templates:[
+        {id:uid(),name:"Грудь + трицепс",exerciseIds:["Жим штанги лёжа","Жим гантелей лёжа","Разведения гантелей","Французский жим","Разгибания на блоке"].map(id)},
+        {id:uid(),name:"Спина + бицепс",exerciseIds:["Подтягивания","Тяга штанги в наклоне","Тяга горизонтального блока","Подъём штанги на бицепс","Молотковые сгибания"].map(id)},
+        {id:uid(),name:"Ноги",exerciseIds:["Приседания со штангой","Жим ногами","Румынская тяга","Выпады","Подъёмы на носки"].map(id)}
       ],
-      workouts: [],
-      activeWorkout: null,
-      metrics: []
+      workouts:[],activeWorkout:null,metrics:[]
     };
   }
 
-  let db = load();
-
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return seed();
-      const parsed = JSON.parse(raw);
-      parsed.settings = { theme: "dark", restSeconds: 90, units: "kg", ...parsed.settings };
-      parsed.exercises ||= [];
-      parsed.templates ||= [];
-      parsed.workouts ||= [];
-      parsed.metrics ||= [];
-      return parsed;
-    } catch {
-      return seed();
-    }
+  function load(){
+    try{
+      const raw=localStorage.getItem(KEY);
+      if(!raw) return createSeed();
+      const d=JSON.parse(raw);
+      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,...(d.settings||{})};
+      d.exercises=Array.isArray(d.exercises)&&d.exercises.length?d.exercises:createSeed().exercises;
+      d.templates=Array.isArray(d.templates)?d.templates:[];
+      d.workouts=Array.isArray(d.workouts)?d.workouts:[];
+      d.metrics=Array.isArray(d.metrics)?d.metrics:[];
+      d.activeWorkout=d.activeWorkout||null;
+      return d;
+    }catch(e){ return createSeed(); }
   }
 
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  }
+  let db=load();
+  const state={tab:"home",search:"",filter:"all",month:new Date(),selectedDay:today(),sheet:null,restTimer:null,restLeft:0,restTotal:90};
 
-  function applyTheme() {
-    const theme = db.settings.theme === "light" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", theme);
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "light" ? "#f3f1ec" : "#121316");
+  function save(){ localStorage.setItem(KEY,JSON.stringify(db)); }
+  function applyTheme(){
+    const t=db.settings.theme==="light"?"light":"dark";
+    document.documentElement.dataset.theme=t;
+    const m=$('meta[name="theme-color"]');
+    if(m)m.content=t==="light"?"#f4f6f8":"#090c10";
   }
-
-  function unitLabel() {
-    return db.settings.units === "lbs" ? "фунты" : "кг";
+  function toast(msg){
+    const el=$("#toast"); if(!el)return;
+    el.textContent=msg; el.classList.remove("is-hidden");
+    clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.add("is-hidden"),2200);
   }
-
-  function toDisplayWeight(kg) {
-    if (kg === "" || kg == null || Number.isNaN(Number(kg))) return "";
-    const n = Number(kg);
-    return db.settings.units === "lbs" ? round(n * 2.20462262, 1) : round(n, 2);
+  function openSheet(html){
+    const el=$("#sheet"); if(!el)return;
+    el.innerHTML='<div class="sheet__panel"><div class="sheet__grab"></div>'+html+"</div>";
+    el.classList.remove("is-hidden"); el.setAttribute("aria-hidden","false");
   }
-
-  function fromDisplayWeight(val) {
-    if (val === "" || val == null) return "";
-    const n = Number(String(val).replace(",", "."));
-    if (Number.isNaN(n)) return "";
-    return db.settings.units === "lbs" ? n / 2.20462262 : n;
+  function closeSheet(){
+    const el=$("#sheet"); if(!el)return;
+    el.classList.add("is-hidden"); el.innerHTML=""; el.setAttribute("aria-hidden","true"); state.sheet=null;
   }
-
-  function round(n, d = 2) {
-    const p = 10 ** d;
-    return Math.round(n * p) / p;
+  function setTab(tab){
+    state.tab=tab;
+    $$(".screen").forEach(s=>s.classList.toggle("active",s.dataset.tab===tab));
+    $$(".tabbar__item").forEach(b=>b.classList.toggle("active",b.dataset.nav===tab));
+    render();
   }
-
-  function fmtTime(sec) {
-    const s = Math.max(0, Math.floor(sec));
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const r = s % 60;
-    if (h) return `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
-    return `${m}:${String(r).padStart(2, "0")}`;
+  function greeting(){
+    const h=new Date().getHours();
+    return h<6?"Доброй ночи":h<12?"Доброе утро":h<18?"Добрый день":"Добрый вечер";
   }
-
-  function greeting() {
-    const h = new Date().getHours();
-    if (h < 6) return "Доброй ночи";
-    if (h < 12) return "Доброе утро";
-    if (h < 18) return "Добрый день";
-    return "Добрый вечер";
+  function startWeek(d=new Date()){
+    const x=new Date(d), day=(x.getDay()+6)%7;
+    x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x;
   }
-
-  function startOfWeek(d = new Date()) {
-    const date = new Date(d);
-    const day = (date.getDay() + 6) % 7;
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - day);
-    return date;
+  function weekWorkouts(){ const from=startWeek().getTime(); return db.workouts.filter(w=>w.finishedAt>=from).length; }
+  function weightLabel(){ return db.settings.units==="lbs"?"lb":"кг"; }
+  function toDisplayWeight(v){
+    if(v===""||v==null) return "";
+    const n=Number(v); return Number.isNaN(n)?"":db.settings.units==="lbs"?round(n*2.20462262,1):round(n,2);
   }
-
-  function workoutsThisWeek() {
-    const from = startOfWeek().getTime();
-    return db.workouts.filter((w) => new Date(w.finishedAt).getTime() >= from).length;
+  function fromDisplayWeight(v){
+    if(v==="") return "";
+    const n=Number(String(v).replace(",",".")); if(Number.isNaN(n))return "";
+    return db.settings.units==="lbs"?n/2.20462262:n;
   }
-
-  function volumeOf(workout) {
-    return workout.exercises.reduce((sum, ex) => {
-      return sum + ex.sets.reduce((s, set) => {
-        if (!set.done || set.weight === "" || set.reps === "") return s;
-        return s + Number(set.weight) * Number(set.reps);
-      }, 0);
-    }, 0);
+  function volume(w){
+    return (w?.exercises||[]).reduce((sum,ex)=>sum+(ex.sets||[]).reduce((s,set)=>set.done&&set.weight!==""&&set.reps!==""?s+Number(set.weight)*Number(set.reps):s,0),0);
   }
-
-  function lastPerformance(exerciseId, beforeTs) {
-    const list = db.workouts
-      .filter((w) => !beforeTs || new Date(w.finishedAt).getTime() < beforeTs)
-      .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
-    for (const w of list) {
-      const ex = w.exercises.find((e) => e.exerciseId === exerciseId);
-      if (!ex) continue;
-      const done = ex.sets.filter((s) => s.done && s.weight !== "" && s.reps !== "");
-      if (done.length) return done;
-    }
+  function doneSets(w){ return (w?.exercises||[]).reduce((n,e)=>n+(e.sets||[]).filter(s=>s.done).length,0); }
+  function findExercise(id){return db.exercises.find(e=>e.id===id)}
+  function lastSets(exerciseId,before){
+    const arr=[...db.workouts].filter(w=>!before||w.finishedAt<before).sort((a,b)=>b.finishedAt-a.finishedAt);
+    for(const w of arr){const ex=w.exercises?.find(x=>x.exerciseId===exerciseId); const done=ex?.sets?.filter(s=>s.done&&s.weight!==""&&s.reps!==""); if(done?.length)return done;}
     return [];
   }
-
-  function lastSetSuggestion(exerciseId) {
-    const sets = lastPerformance(exerciseId);
-    return sets[sets.length - 1] || null;
+  function makeWorkoutExercise(exerciseId){
+    const e=findExercise(exerciseId); if(!e)return null;
+    const prev=lastSets(exerciseId)[0]||null;
+    return {id:uid(),exerciseId,name:e.name,sets:[1,2,3].map(n=>({id:uid(),n,weight:prev?.weight??"",reps:prev?.reps??"",done:false}))};
   }
-
-  function muscleName(id) {
-    return MUSCLES.find((m) => m.id === id)?.name || id;
+  function ensureWorkout(){
+    if(db.activeWorkout)return db.activeWorkout;
+    db.activeWorkout={id:uid(),name:"Тренировка",startedAt:Date.now(),exercises:[]};
+    save(); return db.activeWorkout;
   }
-
-  function exerciseById(id) {
-    return db.exercises.find((e) => e.id === id);
+  function startEmpty(){
+    ensureWorkout(); setTab("workout");
   }
-
-  function toast(text) {
-    const el = $("#toast");
-    el.textContent = text;
-    el.classList.remove("hidden");
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.add("hidden"), 2200);
+  function startTemplate(id){
+    if(db.activeWorkout){setTab("workout");toast("Сначала заверши текущую тренировку");return}
+    const t=db.templates.find(x=>x.id===id); if(!t)return;
+    const w=ensureWorkout(); w.name=t.name; w.exercises=t.exerciseIds.map(makeWorkoutExercise).filter(Boolean);
+    save(); setTab("workout");
   }
-
-  function openSheet(html) {
-    const el = $("#sheet");
-    el.innerHTML = `<div class="sheet__panel"><div class="sheet__grab"></div>${html}</div>`;
-    el.classList.remove("hidden");
-    el.onclick = (e) => { if (e.target === el) closeSheet(); };
+  function addExercise(id){
+    const w=ensureWorkout(); if(w.exercises.some(e=>e.exerciseId===id)){toast("Упражнение уже добавлено");return}
+    const block=makeWorkoutExercise(id); if(!block)return;
+    w.exercises.push(block); save(); closeSheet(); setTab("workout"); toast("Добавлено");
   }
-
-  function closeSheet() {
-    $("#sheet").classList.add("hidden");
-    $("#sheet").innerHTML = "";
-    state.pickMode = null;
+  function finishWorkout(){
+    if(!db.activeWorkout)return;
+    const w={...db.activeWorkout,finishedAt:Date.now(),durationSec:Math.round((Date.now()-db.activeWorkout.startedAt)/1000)};
+    db.workouts.unshift(w); db.activeWorkout=null; stopRest(); save(); closeSheet(); setTab("progress"); toast("Тренировка сохранена");
   }
-
-  function setTab(tab) {
-    state.tab = tab;
-    $$(".screen").forEach((s) => s.classList.toggle("active", s.dataset.tab === tab));
-    document.querySelectorAll(".tabbar__item").forEach((b) => b.classList.toggle("active", b.dataset.nav === tab));
-    render();
-  }
-
-  function beep() {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = 880;
-      gain.gain.value = 0.08;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.18);
-    } catch {}
-  }
-
-  function startRest() {
+  function startRest(){
     stopRest();
-    const total = Number(db.settings.restSeconds) || 90;
-    state.rest = { active: true, left: total, total, timer: null };
-    const tick = () => {
-      state.rest.left -= 1;
-      updateRestBar();
-      if (state.rest.left <= 0) {
-        stopRest();
-        beep();
-        if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
-        toast("Отдых закончен");
-      }
-    };
-    state.rest.timer = setInterval(tick, 1000);
-    updateRestBar();
+    state.restTotal=Number(db.settings.restSeconds)||90; state.restLeft=state.restTotal;
+    const tick=()=>{state.restLeft--; renderRest(); if(state.restLeft<=0){stopRest();toast("Отдых закончен");}};
+    state.restTimer=setInterval(tick,1000); renderRest();
+  }
+  function stopRest(){
+    if(state.restTimer)clearInterval(state.restTimer);
+    state.restTimer=null; state.restLeft=0; renderRest();
+  }
+  function renderRest(){
+    const pill=$("#active-pill"); if(!pill)return;
+    if(state.restLeft>0){pill.textContent="Отдых "+fmtTime(state.restLeft);pill.classList.remove("is-hidden")}
+    else if(db.activeWorkout){pill.textContent="Тренировка "+fmtTime((Date.now()-db.activeWorkout.startedAt)/1000);pill.classList.remove("is-hidden")}
+    else pill.classList.add("is-hidden");
   }
 
-  function stopRest() {
-    if (state.rest.timer) clearInterval(state.rest.timer);
-    state.rest.active = false;
-    state.rest.timer = null;
-    updateRestBar();
+  function render(){
+    applyTheme(); renderRest();
+    if(state.tab==="home")renderHome();
+    if(state.tab==="progress")renderProgress();
+    if(state.tab==="workout")renderWorkout();
+    if(state.tab==="exercises")renderExercises();
+    if(state.tab==="profile")renderProfile();
   }
 
-  function updateRestBar() {
-    const bar = $("#rest-bar");
-    if (!bar) return;
-    if (!state.rest.active) {
-      bar.classList.add("hidden");
-      return;
-    }
-    bar.classList.remove("hidden");
-    $("#rest-time").textContent = fmtTime(state.rest.left);
-    const pct = Math.max(0, (state.rest.left / state.rest.total) * 100);
-    $("#rest-fill").style.width = `${pct}%`;
-  }
-
-  function startDurationClock() {
-    if (state.durationTimer) clearInterval(state.durationTimer);
-    state.durationTimer = setInterval(() => {
-      if (db.activeWorkout && state.tab === "workout") {
-        const el = $("#workout-duration");
-        if (el) el.textContent = fmtTime((Date.now() - db.activeWorkout.startedAt) / 1000);
-      }
-      updateWorkoutBadge();
-    }, 1000);
-  }
-
-  function updateWorkoutBadge() {
-    const badge = $("#workout-badge");
-    if (badge) badge.classList.toggle("live", Boolean(db.activeWorkout));
-  }
-  }
-
-  function ensureWorkout() {
-    if (db.activeWorkout) return db.activeWorkout;
-    db.activeWorkout = {
-      id: uid(),
-      name: "Тренировка",
-      startedAt: Date.now(),
-      exercises: []
-    };
-    save();
-    return db.activeWorkout;
-  }
-
-  function startEmptyWorkout() {
-    if (db.activeWorkout) {
-      setTab("workout");
-      toast("Тренировка уже идёт");
-      return;
-    }
-    ensureWorkout();
-    setTab("workout");
-  }
-
-  function startTemplate(templateId) {
-    if (db.activeWorkout) {
-      setTab("workout");
-      toast("Сначала завершите текущую тренировку");
-      return;
-    }
-    const tpl = db.templates.find((t) => t.id === templateId);
-    if (!tpl) return;
-    const w = ensureWorkout();
-    w.name = tpl.name;
-    w.exercises = tpl.exerciseIds.map((id) => makeWorkoutExercise(id)).filter(Boolean);
-    save();
-    setTab("workout");
-  }
-
-  function makeWorkoutExercise(exerciseId) {
-    const meta = exerciseById(exerciseId);
-    if (!meta) return null;
-    const prev = lastSetSuggestion(exerciseId);
-    const weight = prev ? prev.weight : "";
-    const reps = prev ? prev.reps : "";
-    return {
-      id: uid(),
-      exerciseId,
-      name: meta.name,
-      sets: [1, 2, 3].map((n) => ({ id: uid(), n, weight, reps, done: false }))
-    };
-  }
-
-  function addExerciseToWorkout(exerciseId) {
-    const w = ensureWorkout();
-    if (w.exercises.some((e) => e.exerciseId === exerciseId)) {
-      toast("Упражнение уже добавлено");
-      return;
-    }
-    const block = makeWorkoutExercise(exerciseId);
-    if (!block) return;
-    w.exercises.push(block);
-    save();
-    closeSheet();
-    setTab("workout");
-    toast("Упражнение добавлено");
-  }
-
-  function finishWorkout() {
-    const w = db.activeWorkout;
-    if (!w) return;
-    const finished = {
-      ...w,
-      finishedAt: Date.now(),
-      durationSec: Math.round((Date.now() - w.startedAt) / 1000)
-    };
-    db.workouts.unshift(finished);
-    db.activeWorkout = null;
-    stopRest();
-    save();
-    closeSheet();
-    showSummary(finished);
-    toast("Тренировка сохранена");
-  }
-
-  function showSummary(w) {
-    const vol = round(toDisplayWeight(volumeOf(w)) || 0, 0);
-    openSheet(`
-      <h2>Итоги</h2>
-      <p class="sub">${w.name} · ${fmtTime(w.durationSec)} · ${vol} ${unitLabel()}</p>
-      <div class="summary-list">
-        ${w.exercises.map((ex) => `
-          <div class="card">
-            <h3>${escapeHtml(ex.name)}</h3>
-            <div class="muted">${ex.sets.filter((s) => s.done).map((s) => `${toDisplayWeight(s.weight) || "—"} × ${s.reps || "—"}`).join(" · ") || "Нет подходов"}</div>
+  function renderHome(){
+    const count=weekWorkouts(), goal=Math.max(1,Number(db.settings.weeklyGoal)||3), pct=Math.min(100,Math.round(count/goal*100));
+    const last=db.workouts[0], active=db.activeWorkout, metric=db.metrics.at(-1);
+    $("#screen-home").innerHTML=\`
+      <div class="container">
+        <div class="hero">
+          <div class="hero__row">
+            <div><div class="kicker">Сегодня</div><h1 class="hero__title">\${greeting()}</h1><p class="subtitle hero__sub">\${active?"Тренировка уже идёт.":"Готов к следующей?"}</p></div>
+            <div class="hero__mark">Т</div>
           </div>
-        `).join("")}
-      </div>
-      <div class="row-btns" style="margin-top:14px">
-        <button class="btn btn--ghost" data-act="save-template" data-id="${w.id}">Сохранить как шаблон</button>
-        <button class="btn btn--primary" data-act="close-sheet">Готово</button>
-      </div>
-    `);
-  }
-
-  function saveWorkoutAsTemplate(workoutId) {
-    const w = db.workouts.find((x) => x.id === workoutId);
-    if (!w) return;
-    db.templates.unshift({
-      id: uid(),
-      name: w.name || "Шаблон",
-      exerciseIds: w.exercises.map((e) => e.exerciseId)
-    });
-    save();
-    closeSheet();
-    toast("Шаблон сохранён");
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
-
-  function render() {
-  window.addEventListener("error", (event) => {
-    const root = $("#screen-home");
-    if (root && !root.innerHTML.trim()) root.innerHTML = `<div class="fatal"><b>Не удалось загрузить экран</b><span>Обнови страницу — данные тренировки сохраняются локально.</span><button class="btn btn--primary" onclick="location.reload()">Обновить</button></div>`;
-  });
-    applyTheme();
-    updateWorkoutBadge();
-    updateRestBar();
-    if (state.tab === "home") renderHome();
-    if (state.tab === "history") renderHistory();
-    if (state.tab === "workout") renderWorkout();
-    if (state.tab === "exercises") renderExercises();
-    if (state.tab === "profile") renderProfile();
-  }
-
-  function renderHome() {
-    const count = workoutsThisWeek();
-    const weeklyGoal = 3;
-    const progress = Math.min(100, Math.round((count / weeklyGoal) * 100));
-    const last = db.workouts[0];
-    const lastVolume = last ? round(toDisplayWeight(volumeOf(last)) || 0, 0) : 0;
-    const lastSets = last ? last.exercises.reduce((n, ex) => n + ex.sets.filter((s) => s.done).length, 0) : 0;
-    const metric = db.metrics[db.metrics.length - 1];
-    const active = db.activeWorkout;
-
-    $("#screen-home").innerHTML = `
-      <div class="home-hero">
-        <div>
-          <span class="eyebrow">ДНЕВНИК · СЕГОДНЯ</span>
-          <h1>${greeting()}</h1>
-          <p class="sub">${active ? "Тренировка уже начата — продолжим?" : "Готов записать следующую тренировку?"}</p>
         </div>
-        <div class="home-avatar">Т</div>
-      </div>
-
-      <div class="hero-action">
-        <div>
-          <span class="hero-action__eyebrow">${active ? "В ПРОЦЕССЕ" : "СЛЕДУЮЩИЙ ШАГ"}</span>
-          <h2>${active ? escapeHtml(active.name || "Тренировка") : "Начать тренировку"}</h2>
-          <p>${active ? "Продолжить с того места, где остановился" : "Отметь подходы, отдых и прогресс автоматически"}</p>
-        </div>
-        <button class="hero-action__button" data-act="start-empty" aria-label="${active ? "Продолжить" : "Начать"}">
-          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <button class="card hero-cta" data-act="\${active?"continue-workout":"start-empty"}">
+          <div class="hero-cta__copy">
+            <div class="kicker">\${active?"В ПРОЦЕССЕ":"БЫСТРЫЙ СТАРТ"}</div>
+            <h2>\${active?esc(active.name):"Начать тренировку"}</h2>
+            <p>\${active?"Продолжить с последнего подхода":"Пустая тренировка с умными подсказками по прошлым результатам"}</p>
+          </div>
+          <span class="hero-cta__button">→</span>
         </button>
-      </div>
 
-      <div class="dashboard-grid">
-        <div class="dashboard-card dashboard-card--wide">
-          <div class="dashboard-card__top"><span>Эта неделя</span><b>${count}/${weeklyGoal}</b></div>
-          <div class="progress-track"><span style="width:${progress}%"></span></div>
-          <p>${count >= weeklyGoal ? "Цель выполнена. Сохраняй ритм." : `Ещё ${weeklyGoal - count} до цели`}</p>
+        <div class="stats">
+          <div class="card stat"><span class="stat__label">Тренировки</span><strong class="stat__value">\${count}</strong><span class="stat__hint">за неделю</span></div>
+          <div class="card stat"><span class="stat__label">Подходы</span><strong class="stat__value">\${last?doneSets(last):"—"}</strong><span class="stat__hint">в последней</span></div>
+          <div class="card stat"><span class="stat__label">Вес</span><strong class="stat__value">\${metric?toDisplayWeight(metric.weight):"—"}</strong><span class="stat__hint">\${metric?weightLabel():"добавь"} </span></div>
         </div>
-        <div class="dashboard-card">
-          <span>Подходы</span><strong>${lastSets || "—"}</strong><small>в последней</small>
-        </div>
-        <div class="dashboard-card">
-          <span>Вес</span><strong>${metric ? toDisplayWeight(metric.weight) : "—"}</strong><small>${metric ? unitLabel() : "добавь замер"}</small>
-        </div>
-      </div>
 
-      <div class="section-title">
-        <span>Быстрый старт</span>
-        <button class="link" data-act="new-template">Новый план</button>
-      </div>
-      <div class="carousel">
-        ${db.templates.length ? db.templates.map((t) => `
-          <button class="template-card" data-act="start-template" data-id="${t.id}">
-            <span class="template-card__tag">ПЛАН</span>
-            <h3>${escapeHtml(t.name)}</h3>
-            <p>${t.exerciseIds.length} упражнений</p>
-          </button>
-        `).join("") : `<div class="empty">Создай первый план тренировки</div>`}
-      </div>
+        <div class="card progress-card">
+          <div class="progress-card__head"><span>Ритм недели</span><b>\${count}/\${goal}</b></div>
+          <div class="progress"><span style="width:\${pct}%"></span></div>
+          <div class="progress-card__foot">\${count>=goal?"Цель выполнена":"Ещё "+(goal-count)+" "+plural(goal-count,"тренировка","тренировки","тренировок")}</div>
+        </div>
 
-      <div class="section-title"><span>Последняя тренировка</span></div>
-      ${last ? `
-        <button class="last-workout" data-act="open-workout" data-id="${last.id}">
-          <div class="last-workout__icon">↗</div>
-          <div class="last-workout__main">
-            <b>${escapeHtml(last.name || "Тренировка")}</b>
-            <span>${new Date(last.finishedAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })} · ${fmtTime(last.durationSec || 0)}</span>
+        <div class="section-head"><h2>Планы</h2><button class="link" data-act="new-template">Создать</button></div>
+        <div class="plans">
+          \${db.templates.map(t=>\`<button class="plan" data-act="start-template" data-id="\${t.id}"><span class="plan__tag">ПЛАН</span><h3>\${esc(t.name)}</h3><p>\${t.exerciseIds.length} упражнений · открыть</p></button>\`).join("")}
+        </div>
+
+        <div class="section-head"><h2>Последняя тренировка</h2><button class="link" data-nav="progress">Все</button></div>
+        \${last?\`<button class="card list-card workout-preview" data-act="open-workout" data-id="\${last.id}">
+          <span class="workout-preview__icon">↗</span><span class="workout-preview__main"><b>\${esc(last.name)}</b><span>\${fmtDate(last.finishedAt)} · \${fmtTime(last.durationSec||0)} · \${round(toDisplayWeight(volume(last)),0)||0} \${weightLabel()}</span></span><span>›</span>
+        </button>\`:\`<div class="empty-state"><b>История пока пустая</b>Заверши первую тренировку, чтобы увидеть здесь результат.</div>\`}
+      </div>\`;
+  }
+
+  function renderProgress(){
+    const d=new Date(state.month), y=d.getFullYear(), m=d.getMonth();
+    const first=new Date(y,m,1), offset=(first.getDay()+6)%7, days=new Date(y,m+1,0).getDate();
+    const workoutDays=new Set(db.workouts.map(w=>new Date(w.finishedAt).toISOString().slice(0,10)));
+    const cells=[];
+    for(let i=0;i<offset;i++)cells.push({n:new Date(y,m,0).getDate()-offset+i+1,muted:true});
+    for(let n=1;n<=days;n++){const iso=\`\${y}-\${String(m+1).padStart(2,"0")}-\${String(n).padStart(2,"0")}\`;cells.push({n,iso,muted:false,done:workoutDays.has(iso),selected:iso===state.selectedDay})}
+    while(cells.length%7)cells.push({n:cells.length-offset-days+1,muted:true});
+    const selected=db.workouts.filter(w=>new Date(w.finishedAt).toISOString().slice(0,10)===state.selectedDay);
+    const recent=db.workouts.slice(0,12);
+    const totalVolume=db.workouts.reduce((s,w)=>s+volume(w),0);
+    $("#screen-progress").innerHTML=\`
+      <div class="container">
+        <div class="screen-title"><div class="kicker">Аналитика</div><h1>Прогресс</h1><p class="subtitle" style="margin-top:7px">Тренировки, объём и регулярность.</p></div>
+        <div class="stats">
+          <div class="card stat"><span class="stat__label">Всего</span><strong class="stat__value">\${db.workouts.length}</strong><span class="stat__hint">тренировок</span></div>
+          <div class="card stat"><span class="stat__label">Объём</span><strong class="stat__value">\${round(toDisplayWeight(totalVolume),0)||0}</strong><span class="stat__hint">\${weightLabel()}</span></div>
+          <div class="card stat"><span class="stat__label">Неделя</span><strong class="stat__value">\${weekWorkouts()}</strong><span class="stat__hint">сейчас</span></div>
+        </div>
+        <div class="section-head"><h2>Календарь</h2></div>
+        <div class="card calendar">
+          <div class="calendar__head"><button class="calendar__nav" data-act="month-prev">‹</button><span class="calendar__month">\${first.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar__nav" data-act="month-next">›</button></div>
+          <div class="calendar__grid">\${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(x=>\`<div class="calendar__dow">\${x}</div>\`).join("")}\${cells.map(c=>\`<button class="day \${c.muted?"muted":""} \${c.selected?"selected":""} \${c.done?"done":""}" \${c.muted?"disabled":""} data-act="pick-day" data-iso="\${c.iso||""}">\${c.n}</button>\`).join("")}</div>
+        </div>
+        <div class="section-head"><h2>\${new Date(state.selectedDay+"T12:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}</h2></div>
+        \${selected.length?selected.map(historyItem).join(""):\`<div class="empty-state">Нет тренировки в этот день.</div>\`}
+        <div class="section-head"><h2>Последние</h2></div>
+        <div class="recent-grid">\${recent.length?recent.map(historyItem).join(""):\`<div class="empty-state">Пока нет записей.</div>\`}</div>
+      </div>\`;
+  }
+
+  function historyItem(w){
+    return \`<button class="recent-item" data-act="open-workout" data-id="\${w.id}"><b>\${esc(w.name)}</b><span>\${fmtDate(w.finishedAt)} · \${fmtTime(w.durationSec||0)} · \${doneSets(w)} подходов · \${round(toDisplayWeight(volume(w)),0)||0} \${weightLabel()}</span></button>\`;
+  }
+
+  function renderWorkout(){
+    const w=db.activeWorkout;
+    if(!w){
+      $("#screen-workout").innerHTML=\`
+        <div class="container">
+          <div class="screen-title"><div class="kicker">Рабочий экран</div><h1>Тренировка</h1><p class="subtitle" style="margin-top:7px">Здесь проходит вся тренировка — без лишних экранов.</p></div>
+          <div class="stack">
+            <button class="button button--primary" data-act="start-empty">Начать пустую</button>
+            \${db.templates.slice(0,3).map(t=>\`<button class="card list-card workout-preview" data-act="start-template" data-id="\${t.id}"><span class="workout-preview__icon">＋</span><span class="workout-preview__main"><b>\${esc(t.name)}</b><span>\${t.exerciseIds.length} упражнений</span></span><span>›</span></button>\`).join("")}
           </div>
-          <strong>${lastVolume ? lastVolume + " " + unitLabel() : "→"}</strong>
-        </button>
-      ` : `
-        <div class="empty-card">
-          <b>Здесь появится твой прогресс</b>
-          <span>Заверши первую тренировку — и приложение начнёт показывать динамику.</span>
-        </div>
-      `}
-    `;
-  }
-
-  function plural(n, a, b, c) {
-    const v = Math.abs(n) % 100;
-    const v1 = v % 10;
-    if (v > 10 && v < 20) return c;
-    if (v1 > 1 && v1 < 5) return b;
-    if (v1 === 1) return a;
-    return c;
-  }
-
-  function renderHistory() {
-    const y = state.cal.getFullYear();
-    const m = state.cal.getMonth();
-    const first = new Date(y, m, 1);
-    const start = (first.getDay() + 6) % 7;
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const daysPrev = new Date(y, m, 0).getDate();
-    const monthName = first.toLocaleDateString("ru-RU", { month: "long" });
-    const monthTitle = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${y}`;
-    const dots = new Set(db.workouts.map((w) => new Date(w.finishedAt).toISOString().slice(0, 10)));
-    const cells = [];
-    for (let i = 0; i < start; i++) cells.push({ d: daysPrev - start + i + 1, muted: true, iso: null });
-    for (let d = 1; d <= daysInMonth; d++) {
-      const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      cells.push({ d, muted: false, iso });
-    }
-    let nextDay = 1;
-    while (cells.length % 7) cells.push({ d: nextDay++, muted: true, iso: null });
-
-    const list = db.workouts.filter((w) => new Date(w.finishedAt).toISOString().slice(0, 10) === state.selectedDay);
-
-    $("#screen-history").innerHTML = `
-      <div class="page-header"><h1>История</h1></div>
-      <div class="calendar">
-        <div class="cal-head">
-          <button class="icon-btn" data-act="cal-prev" aria-label="Предыдущий месяц">${chevLeft()}</button>
-          <span>${monthTitle}</span>
-          <button class="icon-btn" data-act="cal-next" aria-label="Следующий месяц">${chevRight()}</button>
-        </div>
-        <div class="cal-grid">
-          ${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => `<div class="cal-dow">${d}</div>`).join("")}
-          ${cells.map((c) => `
-            <button class="cal-day ${c.muted ? "muted" : ""} ${c.iso === state.selectedDay ? "selected" : ""} ${c.iso && dots.has(c.iso) ? "has-dot" : ""}"
-              data-act="pick-day" data-iso="${c.iso || ""}" ${c.muted ? "disabled" : ""}>${c.d}</button>
-          `).join("")}
-        </div>
-      </div>
-      ${list.length ? list.map((w) => historyCard(w)).join("") : `<div class="empty">Нет тренировок в этот день</div>`}
-      <div class="section-title" style="margin-top:18px"><span>Все записи</span></div>
-      ${db.workouts.slice(0, 20).map(historyCard).join("") || `<div class="empty">История пуста</div>`}
-    `;
-  }
-
-  function historyCard(w) {
-    const date = new Date(w.finishedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
-    const vol = round(toDisplayWeight(volumeOf(w)) || 0, 0);
-    return `
-      <button class="history-item" data-act="open-workout" data-id="${w.id}">
-        <h3>${escapeHtml(w.name)}</h3>
-        <p>${date} · ${fmtTime(w.durationSec || 0)} · ${vol} ${unitLabel()}</p>
-      </button>
-    `;
-  }
-
-  function openWorkoutDetail(id) {
-    const w = db.workouts.find((x) => x.id === id);
-    if (!w) return;
-    const vol = round(toDisplayWeight(volumeOf(w)) || 0, 0);
-    openSheet(`
-      <h2>${escapeHtml(w.name)}</h2>
-      <p class="sub">${new Date(w.finishedAt).toLocaleString("ru-RU")} · ${fmtTime(w.durationSec || 0)} · ${vol} ${unitLabel()}</p>
-      ${w.exercises.map((ex) => `
-        <div class="card" style="margin-bottom:8px">
-          <h3>${escapeHtml(ex.name)}</h3>
-          ${ex.sets.map((s) => `<div class="muted">${s.n}. ${toDisplayWeight(s.weight) || "—"} × ${s.reps || "—"} ${s.done ? "✓" : ""}</div>`).join("")}
-        </div>
-      `).join("")}
-      <button class="btn btn--primary" data-act="close-sheet">Закрыть</button>
-    `);
-  }
-
-  function renderWorkout() {
-    const w = db.activeWorkout;
-    if (!w) {
-      $("#screen-workout").innerHTML = `
-        <div class="page-header"><h1>Тренировка</h1></div>
-        <div class="empty">Нет активной тренировки</div>
-        <button class="btn btn--primary" data-act="start-empty">Начать пустую тренировку</button>
-      `;
+          <div class="section-head"><h2>Что получаетшся</h2></div>
+          <div class="notice">После каждого подхода приложение запустит таймер отдыха. В новых тренировках автоматически подставится прошлый рабочий вес и количество повторений.</div>
+        </div>\`;
       return;
     }
-    $("#screen-workout").innerHTML = `
-      <div class="workout-head">
-        <input class="workout-name" id="workout-name" value="${escapeHtml(w.name)}" />
-        <div class="timer" id="workout-duration">${fmtTime((Date.now() - w.startedAt) / 1000)}</div>
-      </div>
-      ${w.exercises.map(exerciseCard).join("") || `<div class="empty">Добавьте первое упражнение</div>`}
-      <div class="fab-space"></div>
-      <div class="workout-actions">
-        <button class="btn btn--ghost" data-act="add-exercise">Добавить упражнение</button>
-        <button class="btn btn--primary" data-act="ask-finish">Завершить тренировку</button>
-      </div>
-    `;
-    bindSwipe();
-  }
-
-  function exerciseCard(ex) {
-    const prev = lastPerformance(ex.exerciseId, db.activeWorkout?.startedAt);
-    const prevText = prev.length
-      ? `Прошлый раз: ${prev.map((s) => `${toDisplayWeight(s.weight)}×${s.reps}`).join(", ")}`
-      : "Нет предыдущих данных";
-    return `
-      <div class="ex-card" data-ex="${ex.id}">
-        <button class="ex-card__delete" data-act="delete-ex" data-id="${ex.id}">Удалить</button>
-        <div class="ex-card__inner">
-          <div class="ex-card__top">
-            <h3>${escapeHtml(ex.name)}</h3>
-            <button class="link" data-act="ex-history" data-eid="${ex.exerciseId}">История</button>
-          </div>
-          <div class="prev">${prevText}</div>
-          <div class="set-table-head"><span>#</span><span>Вес</span><span>Повт.</span><span></span></div>
-          ${ex.sets.map((s) => `
-            <div class="set-wrap" data-set="${s.id}">
-              <button class="set-row__delete" data-act="delete-set" data-ex="${ex.id}" data-id="${s.id}">Удалить</button>
-              <div class="set-row">
-                <div class="set-num">${s.n}</div>
-                <input inputmode="decimal" readonly data-k="weight" data-ex="${ex.id}" data-id="${s.id}" value="${s.weight === "" ? "" : toDisplayWeight(s.weight)}" placeholder="—" />
-                <input inputmode="numeric" readonly data-k="reps" data-ex="${ex.id}" data-id="${s.id}" value="${s.reps}" placeholder="—" />
-                <button class="check-btn ${s.done ? "done" : ""}" data-act="toggle-set" data-ex="${ex.id}" data-id="${s.id}" aria-label="Подход выполнен">
-                  <svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>
-                </button>
-              </div>
-            </div>
-          `).join("")}
-          <button class="add-set" data-act="add-set" data-id="${ex.id}">+ Подход</button>
+    const total=w.exercises.reduce((s,e)=>s+e.sets.length,0), completed=doneSets(w), vol=volume(w);
+    $("#screen-workout").innerHTML=\`
+      <div class="container">
+        <div class="screen-title">
+          <div class="row row--between"><div style="min-width:0"><input id="workout-name" value="\${esc(w.name)}" style="width:100%;border:0;background:none;outline:none;font-size:30px;font-weight:900;letter-spacing:-1.4px"></div><span style="color:var(--accent);font-weight:900;font-size:13px" id="duration">\${fmtTime((Date.now()-w.startedAt)/1000)}</span></div>
+          <p class="subtitle" style="margin-top:7px">\${completed}/\${total} подходов выполнено · \${round(toDisplayWeight(vol),0)||0} \${weightLabel()}</p>
         </div>
-      </div>
-    `;
-  }
-
-  function bindSwipe() {
-    $$(".ex-card").forEach((card) => enableSwipe(card, ".ex-card__inner", 88));
-    $$(".set-wrap").forEach((row) => enableSwipe(row, ".set-row", 88));
-  }
-
-  function enableSwipe(root, innerSel, width) {
-    const inner = $(innerSel, root);
-    let x0 = 0;
-    let dx = 0;
-    let dragging = false;
-    root.addEventListener("touchstart", (e) => {
-      dragging = true;
-      x0 = e.touches[0].clientX;
-      dx = 0;
-      inner.style.transition = "none";
-    }, { passive: true });
-    root.addEventListener("touchmove", (e) => {
-      if (!dragging) return;
-      dx = Math.min(0, e.touches[0].clientX - x0);
-      inner.style.transform = `translateX(${Math.max(dx, -width)}px)`;
-    }, { passive: true });
-    const end = () => {
-      if (!dragging) return;
-      dragging = false;
-      inner.style.transition = "";
-      inner.style.transform = dx < -width / 2 ? `translateX(-${width}px)` : "translateX(0)";
-    };
-    root.addEventListener("touchend", end);
-    root.addEventListener("touchcancel", end);
-  }
-
-  function renderExercises() {
-    const q = state.search.trim().toLowerCase();
-    const items = db.exercises
-      .filter((e) => state.muscleFilter === "all" || e.muscle === state.muscleFilter)
-      .filter((e) => !q || e.name.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
-    $("#screen-exercises").innerHTML = `
-      <div class="page-header">
-        <h1>Упражнения</h1>
-        <button class="icon-btn" data-act="new-exercise" aria-label="Добавить">${plusIcon()}</button>
-      </div>
-      <input class="search" id="ex-search" placeholder="Поиск упражнения" value="${escapeHtml(state.search)}" />
-      <div class="chips">
-        <button class="chip ${state.muscleFilter === "all" ? "active" : ""}" data-act="filter" data-id="all">Все</button>
-        ${MUSCLES.map((m) => `<button class="chip ${state.muscleFilter === m.id ? "active" : ""}" data-act="filter" data-id="${m.id}">${m.name}</button>`).join("")}
-      </div>
-      <div class="ex-list">
-        ${items.map((e) => `
-          <button class="ex-item" data-act="pick-ex" data-id="${e.id}">
-            <div>
-              <b>${escapeHtml(e.name)}</b><br>
-              <small>${muscleName(e.muscle)}${e.custom ? " · своё" : ""}</small>
-            </div>
-          </button>
-        `).join("") || `<div class="empty">Ничего не найдено</div>`}
-      </div>
-    `;
-    const search = $("#ex-search");
-    search?.addEventListener("input", (e) => {
-      state.search = e.target.value;
-      const pos = e.target.selectionStart;
-      renderExercises();
-      const next = $("#ex-search");
-      if (next) {
-        next.focus();
-        next.setSelectionRange(pos, pos);
-      }
-    });
-  }
-
-  function renderProfile() {
-    const last = db.metrics[db.metrics.length - 1];
-    $("#screen-profile").innerHTML = `
-      <div class="page-header"><h1>Профиль</h1></div>
-      <div class="section-title"><span>Вес тела</span></div>
-      <div class="field">
-        <label>Текущий вес (${unitLabel()})</label>
-        <input id="body-weight" inputmode="decimal" value="${last ? toDisplayWeight(last.weight) : ""}" placeholder="0" />
-      </div>
-      <div class="stats-row">
-        <div class="field" style="margin:0">
-          <label>Талия, см</label>
-          <input id="body-waist" inputmode="decimal" value="${last?.waist || ""}" placeholder="0" />
+        <div class="stack">
+          \${w.exercises.length?w.exercises.map(exerciseBlock).join(""):\`<div class="empty-state"><b>Добавь первое упражнение</b>Начни с кнопки ниже.</div>\`}
         </div>
-        <div class="field" style="margin:0">
-          <label>Грудь, см</label>
-          <input id="body-chest" inputmode="decimal" value="${last?.chest || ""}" placeholder="0" />
+        <div class="workout-bottom">
+          <button class="button button--secondary" data-act="add-exercise">＋ Добавить упражнение</button>
+          <button class="button button--primary" data-act="finish-workout">Завершить тренировку</button>
         </div>
-      </div>
-      <button class="btn btn--primary" data-act="save-weight" style="margin-top:10px">Сохранить замеры</button>
-      ${weightChart()}
-      <div class="section-title"><span>Настройки</span></div>
-      <div class="field">
-        <label>Тема</label>
-        <select id="theme-sel">
-          <option value="dark" ${db.settings.theme === "dark" ? "selected" : ""}>Тёмная</option>
-          <option value="light" ${db.settings.theme === "light" ? "selected" : ""}>Светлая</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Отдых между подходами (сек)</label>
-        <input id="rest-sec" inputmode="numeric" value="${db.settings.restSeconds}" />
-      </div>
-      <div class="field">
-        <label>Единицы веса</label>
-        <select id="unit-sel">
-          <option value="kg" ${db.settings.units === "kg" ? "selected" : ""}>Килограммы</option>
-          <option value="lbs" ${db.settings.units === "lbs" ? "selected" : ""}>Фунты</option>
-        </select>
-      </div>
-      <button class="btn btn--ghost" data-act="save-settings">Сохранить настройки</button>
-      <div class="section-title"><span>Данные</span></div>
-      <div class="row-btns">
-        <button class="btn btn--ghost" data-act="export">Экспортировать данные</button>
-        <button class="btn btn--ghost" data-act="import">Импортировать данные</button>
-        <input type="file" id="import-file" accept="application/json,.json" hidden />
-      </div>
-    `;
+      </div>\`;
   }
 
-  function weightChart() {
-    if (db.metrics.length < 2) {
-      return `<svg class="chart" viewBox="0 0 300 160"><text x="150" y="85" text-anchor="middle" fill="currentColor" font-size="13">Нужно минимум 2 записи</text></svg>`;
-    }
-    const vals = db.metrics.map((m) => Number(toDisplayWeight(m.weight)));
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const span = max - min || 1;
-    const pts = vals.map((v, i) => {
-      const x = 16 + (i / (vals.length - 1)) * 268;
-      const y = 130 - ((v - min) / span) * 100;
-      return `${x},${y}`;
-    }).join(" ");
-    return `<svg class="chart" viewBox="0 0 300 160">
-      <polyline fill="none" stroke="currentColor" stroke-width="3" points="${pts}" />
-    </svg>
-    <p class="sub" style="margin-top:-8px">Динамика веса · ${db.metrics.length} записей</p>`;
+  function exerciseBlock(ex){
+    const prev=lastSets(ex.exerciseId,db.activeWorkout?.startedAt);
+    const prevText=prev.length?"Прошлый раз: "+prev.map(s=>\`\${toDisplayWeight(s.weight)}×\${s.reps}\`).join(" · "):"Нет прошлых данных";
+    return \`<div class="card detail" data-ex="\${ex.id}">
+      <div class="detail__head"><div><div class="detail__name">\${esc(ex.name)}</div><div class="detail__meta">\${prevText}</div></div><button class="link" data-act="exercise-history" data-eid="\${ex.exerciseId}">История</button></div>
+      <div class="set-table"><div class="set-head"><span>#</span><span>Вес</span><span>Повт.</span><span></span></div>
+      \${ex.sets.map(s=>\`<div class="set-row"><div class="set-num">\${s.n}</div>
+        <input type="number" step="0.5" min="0" inputmode="decimal" data-kind="weight" data-ex="\${ex.id}" data-set="\${s.id}" value="\${s.weight===""?"":toDisplayWeight(s.weight)}" placeholder="—">
+        <input type="number" min="0" inputmode="numeric" data-kind="reps" data-ex="\${ex.id}" data-set="\${s.id}" value="\${s.reps===""?"":s.reps}" placeholder="—">
+        <button class="set-check \${s.done?"done":""}" data-act="toggle-set" data-ex="\${ex.id}" data-set="\${s.id}">\${s.done?"✓":"○"}</button>
+      </div>\`).join("")}</div>
+      <button class="add-set" data-act="add-set" data-ex="\${ex.id}">＋ Подход</button>
+      </div>\`;
   }
 
-  function plusIcon() {
-    return `<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
-  }
-  function chevLeft() {
-    return `<svg viewBox="0 0 24 24"><path d="M15 6 9 12l6 6"/></svg>`;
-  }
-  function chevRight() {
-    return `<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>`;
-  }
-
-  function findSet(exId, setId) {
-    const ex = db.activeWorkout?.exercises.find((e) => e.id === exId);
-    const set = ex?.sets.find((s) => s.id === setId);
-    return { ex, set };
+  function renderExercises(){
+    const q=state.search.trim().toLowerCase();
+    const items=db.exercises.filter(e=>(state.filter==="all"||e.muscle===state.filter)&&(!q||e.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+    $("#screen-exercises").innerHTML=\`
+      <div class="container">
+        <div class="screen-title"><div class="row row--between"><div><div class="kicker">Библиотека</div><h1>Упражнения</h1></div><button class="button button--small" data-act="new-exercise">＋ Добавить</button></div></div>
+        <input id="exercise-search" class="search" placeholder="Поиск упражнения" value="\${esc(state.search)}">
+        <div class="chips"><button class="chip \${state.filter==="all"?"active":""}" data-act="filter" data-filter="all">Все</button>\${MUSCLES.map(m=>\`<button class="chip \${state.filter===m[0]?"active":""}" data-act="filter" data-filter="\${m[0]}">\${m[1]}</button>\`).join("")}</div>
+        <div class="exercise-list">\${items.map(e=>\`<button class="exercise-item" data-act="exercise-info" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}\${e.custom?" · своё":""}</span></span><span class="exercise-item__chev">›</span></button>\`).join("")||\`<div class="empty-state">Ничего не найдено.</div>\`}</div>
+      </div>\`;
+    const s=$("#exercise-search"); if(s){s.addEventListener("input",e=>{state.search=e.target.value;renderExercises();const n=$("#exercise-search");n?.focus();if(n)n.setSelectionRange(n.value.length,n.value.length);});}
   }
 
-  function openKeypad(exId, setId, kind) {
-    const { set } = findSet(exId, setId);
-    if (!set) return;
-    const current = kind === "weight" ? (set.weight === "" ? "" : String(toDisplayWeight(set.weight))) : String(set.reps || "");
-    state.keypad = { exId, setId, kind, value: current };
-    $("#keypad").classList.remove("hidden");
-    drawKeypad();
+  function renderProfile(){
+    const last=db.metrics.at(-1);
+    $("#screen-profile").innerHTML=\`
+      <div class="container">
+        <div class="screen-title"><div class="kicker">Настройки</div><h1>Профиль</h1><p class="subtitle" style="margin-top:7px">Данные тела, таймер отдыха и копия дневника.</p></div>
+        <div class="section-head"><h2>Замеры</h2></div>
+        <div class="form-grid">
+          <div class="field"><label>Вес (\${weightLabel()})</label><input id="body-weight" inputmode="decimal" value="\${last?toDisplayWeight(last.weight):""}" placeholder="—"></div>
+          <div class="field"><label>Талия (см)</label><input id="body-waist" inputmode="decimal" value="\${last?.waist??""}" placeholder="—"></div>
+        </div>
+        <button class="button button--primary" data-act="save-metrics" style="margin-top:9px">Сохранить замеры</button>
+
+        <div class="section-head"><h2>Настройки</h2></div>
+        <div class="stack">
+          <div class="field"><label>Тема</label><select id="theme"><option value="dark" \${db.settings.theme==="dark"?"selected":""}>Тёмная</option><option value="light" \${db.settings.theme==="light"?"selected":""}>Светлая</option></select></div>
+          <div class="field"><label>Отдых между подходами, сек</label><input id="rest-sec" inputmode="numeric" value="\${db.settings.restSeconds}"></div>
+          <div class="field"><label>Цель тренировок в неделю</label><input id="weekly-goal" inputmode="numeric" value="\${db.settings.weeklyGoal}"></div>
+          <button class="button button--secondary" data-act="save-settings">Сохранить настройки</button>
+        </div>
+
+        <div class="section-head"><h2>Данные</h2></div>
+        <div class="stack">
+          <button class="button button--secondary" data-act="export">Экспортировать дневник</button>
+          <button class="button button--secondary" data-act="import">Импортировать дневник</button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden>
+        </div>
+      </div>\`;
   }
 
-  function drawKeypad() {
-    const k = state.keypad;
-    if (!k) return;
-    const title = k.kind === "weight" ? `Вес, ${unitLabel()}` : "Повторения";
-    $("#keypad").innerHTML = `
-      <div class="keypad__top"><span>${title}</span><strong>${k.value || "0"}</strong></div>
-      <div class="keypad__grid">
-        ${[1,2,3,4,5,6,7,8,9,".",0,"⌫"].map((x) => `<button class="key" data-key="${x}">${x}</button>`).join("")}
-        <button class="key key--ok" data-key="ok">Готово</button>
-      </div>
-    `;
+  function showExerciseInfo(id){
+    const e=findExercise(id); if(!e)return;
+    const rows=db.workouts.filter(w=>w.exercises?.some(x=>x.exerciseId===id)).slice(0,8);
+    openSheet(\`
+      <div class="sheet__title">\${esc(e.name)}</div>
+      <div class="subtitle">\${muscle(e.muscle)} · \${e.custom?"своё упражнение":"базовое"}</div>
+      <div class="section-head" style="margin-top:18px"><h2>История</h2></div>
+      \${rows.length?rows.map(w=>{const ex=w.exercises.find(x=>x.exerciseId===id);return \`<div class="rec-card" style="margin-bottom:8px"><b>\${fmtDate(w.finishedAt)}</b><span>\${ex.sets.filter(s=>s.done).map(s=>\`\${toDisplayWeight(s.weight)} × \${s.reps}\`).join(" · ")||"Нет выполненных подходов"}</span></div>\`}).join(""):\`<div class="empty-state">Истории ещё нет.</div>\`}
+      <div class="stack" style="margin-top:12px">
+        <button class="button button--primary" data-act="use-exercise" data-id="\${id}">\${db.activeWorkout?"Добавить в текущую":"Начать с этого упражнения"}</button>
+        <button class="button button--secondary" data-act="close-sheet">Закрыть</button>
+      </div>\`);
   }
 
-  function applyKey(key) {
-    const k = state.keypad;
-    if (!k) return;
-    if (key === "ok") {
-      const { set } = findSet(k.exId, k.setId);
-      if (set) {
-        if (k.kind === "weight") set.weight = fromDisplayWeight(k.value);
-        else set.reps = k.value === "" ? "" : Number(k.value.replace(",", "."));
-        save();
-      }
-      state.keypad = null;
-      $("#keypad").classList.add("hidden");
-      renderWorkout();
-      return;
-    }
-    if (key === "⌫") k.value = k.value.slice(0, -1);
-    else if (key === ".") {
-      if (k.kind === "reps") return;
-      if (!k.value.includes(".")) k.value += k.value ? "." : "0.";
-    } else {
-      if (k.value === "0") k.value = String(key);
-      else k.value += String(key);
-    }
-    drawKeypad();
+  function showAddExercise(){
+    const items=[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+    openSheet(\`
+      <div class="sheet__title">Добавить упражнение</div>
+      <input id="sheet-search" class="search" placeholder="Найти упражнение">
+      <div class="exercise-list" id="sheet-list" style="margin-top:10px">\${items.map(e=>\`<button class="exercise-item" data-act="add-ex" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}</span></span><span>＋</span></button>\`).join("")}</div>\`);
+    const s=$("#sheet-search"); s?.addEventListener("input",e=>{const q=e.target.value.toLowerCase();$("#sheet-list").innerHTML=items.filter(x=>x.name.toLowerCase().includes(q)).map(e=>\`<button class="exercise-item" data-act="add-ex" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}</span></span><span>＋</span></button>\`).join("")});
   }
 
-  function askFinish() {
-    if (!db.activeWorkout) return;
-    openSheet(`
-      <h2>Завершить тренировку?</h2>
-      <p class="sub">Данные сохранятся на этом устройстве.</p>
-      <div class="row-btns">
-        <button class="btn btn--primary" data-act="finish">Завершить</button>
-        <button class="btn btn--ghost" data-act="close-sheet">Продолжить</button>
-      </div>
-    `);
+  function showNewExercise(){
+    openSheet(\`
+      <div class="sheet__title">Новое упражнение</div>
+      <div class="field" style="margin-top:10px"><label>Название</label><input id="new-ex-name" placeholder="Например, жим в хаммере"></div>
+      <div class="field" style="margin-top:9px"><label>Мышечная группа</label><select id="new-ex-muscle">\${MUSCLES.map(m=>\`<option value="\${m[0]}">\${m[1]}</option>\`).join("")}</select></div>
+      <button class="button button--primary" style="margin-top:10px" data-act="create-exercise">Сохранить</button>\`);
   }
 
-  function showAddExerciseSheet() {
-    state.pickMode = "workout";
-    const items = [...db.exercises].sort((a, b) => a.name.localeCompare(b.name, "ru"));
-    openSheet(`
-      <h2>Добавить упражнение</h2>
-      <input class="search" id="sheet-search" placeholder="Поиск" />
-      <div class="ex-list" id="sheet-list" style="margin-top:10px">
-        ${items.map(exPickRow).join("")}
-      </div>
-    `);
-    $("#sheet-search").addEventListener("input", (e) => {
-      const q = e.target.value.toLowerCase();
-      $("#sheet-list").innerHTML = items.filter((x) => x.name.toLowerCase().includes(q)).map(exPickRow).join("");
-    });
+  function showNewTemplate(){
+    openSheet(\`
+      <div class="sheet__title">Новый план</div>
+      <div class="field" style="margin-top:10px"><label>Название</label><input id="template-name" placeholder="Например, Push"></div>
+      <div class="section-head"><h2>Упражнения</h2></div>
+      <div class="exercise-list" id="template-picks">\${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>\`<button class="exercise-item" data-act="toggle-template-ex" data-id="\${e.id}"><span class="exercise-item__main"><b>\${esc(e.name)}</b><span>\${muscle(e.muscle)}</span></span><span data-mark="\${e.id}" style="font-weight:900"></span></button>\`).join("")}</div>
+      <button class="button button--primary" style="margin-top:10px" data-act="create-template">Создать план</button>\`);
+    $("#sheet")._selected=new Set();
   }
 
-  function exPickRow(e) {
-    return `<button class="ex-item" data-act="add-ex-id" data-id="${e.id}"><div><b>${escapeHtml(e.name)}</b><br><small>${muscleName(e.muscle)}</small></div></button>`;
+  function showWorkoutDetail(id){
+    const w=db.workouts.find(x=>x.id===id); if(!w)return;
+    openSheet(\`
+      <div class="sheet__title">\${esc(w.name)}</div>
+      <div class="subtitle">\${new Date(w.finishedAt).toLocaleString("ru-RU")} · \${fmtTime(w.durationSec||0)} · \${round(toDisplayWeight(volume(w)),0)||0} \${weightLabel()}</div>
+      <div class="section-head"><h2>Упражнения</h2></div>
+      <div class="stack">\${w.exercises.map(ex=>\`<div class="rec-card"><b>\${esc(ex.name)}</b><span>\${ex.sets.filter(s=>s.done).map(s=>\`\${toDisplayWeight(s.weight)} × \${s.reps}\`).join(" · ")||"Нет выполненных подходов"}</span></div>\`).join("")}</div>
+      <button class="button button--secondary" style="margin-top:12px" data-act="close-sheet">Закрыть</button>\`);
   }
 
-  function showNewExercise() {
-    openSheet(`
-      <h2>Новое упражнение</h2>
-      <div class="field"><label>Название</label><input id="new-ex-name" placeholder="Например, жим в хаммере" /></div>
-      <div class="field"><label>Мышечная группа</label>
-        <select id="new-ex-muscle">${MUSCLES.map((m) => `<option value="${m.id}">${m.name}</option>`).join("")}</select>
-      </div>
-      <button class="btn btn--primary" data-act="create-ex">Сохранить</button>
-    `);
+  function saveMetrics(){
+    const raw=$("#body-weight").value, weight=fromDisplayWeight(raw);
+    if(weight===""){toast("Введи вес");return}
+    const n=id=>{const v=$(id)?.value?.replace(",",".")??""; return v===""?"":Number(v)};
+    db.metrics.push({date:today(),weight,waist:n("#body-waist")}); save(); toast("Замеры сохранены"); renderProfile();
   }
-
-  function createExercise() {
-    const name = $("#new-ex-name")?.value.trim();
-    const muscle = $("#new-ex-muscle")?.value;
-    if (!name) { toast("Введите название"); return; }
-    db.exercises.push({ id: uid(), name, muscle, custom: true });
-    save();
-    closeSheet();
-    toast("Упражнение создано");
-    render();
+  function saveSettings(){
+    db.settings.theme=$("#theme").value;
+    db.settings.restSeconds=Math.max(15,Number($("#rest-sec").value)||90);
+    db.settings.weeklyGoal=Math.max(1,Math.min(14,Number($("#weekly-goal").value)||3));
+    save(); applyTheme(); toast("Настройки сохранены"); render();
   }
-
-  function showNewTemplate() {
-    const selected = new Set();
-    openSheet(`
-      <h2>Новый шаблон</h2>
-      <div class="field"><label>Название</label><input id="tpl-name" placeholder="Например, Push" /></div>
-      <p class="sub">Выберите упражнения</p>
-      <div class="ex-list" id="tpl-list">
-        ${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map((e) => `
-          <button class="ex-item" data-act="toggle-tpl-ex" data-id="${e.id}">
-            <div><b>${escapeHtml(e.name)}</b><br><small>${muscleName(e.muscle)}</small></div>
-            <span class="muted" data-mark="${e.id}"></span>
-          </button>
-        `).join("")}
-      </div>
-      <button class="btn btn--primary" style="margin-top:12px" data-act="create-tpl">Сохранить шаблон</button>
-    `);
-    $("#sheet")._selected = selected;
+  function createExercise(){
+    const name=$("#new-ex-name")?.value?.trim(), m=$("#new-ex-muscle")?.value;
+    if(!name){toast("Введи название");return}
+    db.exercises.push({id:uid(),name,muscle:m,custom:true});save();closeSheet();toast("Упражнение создано");renderExercises();
   }
-
-  function showExHistory(exerciseId) {
-    const meta = exerciseById(exerciseId);
-    const rows = db.workouts.filter((w) => w.exercises.some((e) => e.exerciseId === exerciseId)).slice(0, 8);
-    openSheet(`
-      <h2>${escapeHtml(meta?.name || "История")}</h2>
-      ${rows.length ? rows.map((w) => {
-        const ex = w.exercises.find((e) => e.exerciseId === exerciseId);
-        return `<div class="card" style="margin-bottom:8px">
-          <b>${new Date(w.finishedAt).toLocaleDateString("ru-RU")}</b>
-          <div class="muted">${ex.sets.filter(s=>s.done).map(s => `${toDisplayWeight(s.weight)}×${s.reps}`).join(" · ") || "—"}</div>
-        </div>`;
-      }).join("") : `<div class="empty">Пока нет истории</div>`}
-      <button class="btn btn--primary" data-act="close-sheet">Закрыть</button>
-    `);
+  function createTemplate(){
+    const name=$("#template-name")?.value?.trim(), selected=[...($("#sheet")._selected||[])];
+    if(!name){toast("Введи название");return}
+    if(!selected.length){toast("Выбери хотя бы одно упражнение");return}
+    db.templates.unshift({id:uid(),name,exerciseIds:selected});save();closeSheet();toast("План создан");renderHome();
   }
-
-  function exportData() {
-    const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `dnevnik-trenirovok-${todayISO()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast("Файл экспорта готов");
+  function exportData(){
+    const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="dnevnik-trenirovok.json";a.click();URL.revokeObjectURL(a.href);
   }
-
-  function importData(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        if (!parsed || typeof parsed !== "object") throw new Error("bad");
-        db = {
-          settings: { theme: "dark", restSeconds: 90, units: "kg", ...parsed.settings },
-          exercises: parsed.exercises || seed().exercises,
-          templates: parsed.templates || [],
-          workouts: parsed.workouts || [],
-          activeWorkout: parsed.activeWorkout || null,
-          metrics: parsed.metrics || []
-        };
-        save();
-        render();
-        toast("Данные импортированы");
-      } catch {
-        toast("Не удалось прочитать файл");
-      }
-    };
+  function importData(file){
+    const reader=new FileReader();
+    reader.onload=()=>{try{const p=JSON.parse(reader.result);db={...createSeed(),...p,settings:{...createSeed().settings,...(p.settings||{})}};save();render();toast("Дневник импортирован")}catch{toast("Не удалось импортировать файл")}};
     reader.readAsText(file);
   }
 
-  document.addEventListener("click", (e) => {
-    const nav = e.target.closest("[data-nav]");
-    if (nav) {
-      setTab(nav.dataset.nav);
-      return;
-    }
-    const key = e.target.closest("[data-key]");
-    if (key) { applyKey(key.dataset.key); return; }
+  document.addEventListener("click",e=>{
+    const nav=e.target.closest("[data-nav]"); if(nav){setTab(nav.dataset.nav);return}
+    const act=e.target.closest("[data-act]"); if(!act)return;
+    const a=act.dataset.act, id=act.dataset.id;
 
-    const act = e.target.closest("[data-act]");
-    if (!act) return;
-    const a = act.dataset.act;
-    if (a === "start-empty") startEmptyWorkout();
-    if (a === "start-template") startTemplate(act.dataset.id);
-    if (a === "add-exercise") showAddExerciseSheet();
-    if (a === "add-ex-id") addExerciseToWorkout(act.dataset.id);
-    if (a === "ask-finish") askFinish();
-    if (a === "finish") finishWorkout();
-    if (a === "close-sheet") closeSheet();
-    if (a === "save-template") saveWorkoutAsTemplate(act.dataset.id);
-    if (a === "cal-prev") { state.cal.setMonth(state.cal.getMonth() - 1); renderHistory(); }
-    if (a === "cal-next") { state.cal.setMonth(state.cal.getMonth() + 1); renderHistory(); }
-    if (a === "pick-day" && act.dataset.iso) { state.selectedDay = act.dataset.iso; renderHistory(); }
-    if (a === "open-workout") openWorkoutDetail(act.dataset.id);
-    if (a === "filter") { state.muscleFilter = act.dataset.id; renderExercises(); }
-    if (a === "new-exercise") showNewExercise();
-    if (a === "create-ex") createExercise();
-    if (a === "new-template") showNewTemplate();
-    if (a === "pick-ex") {
-      if (db.activeWorkout) addExerciseToWorkout(act.dataset.id);
-      else showExHistory(act.dataset.id);
+    if(a==="start-empty"||a==="continue-workout"){startEmpty();return}
+    if(a==="start-template"){startTemplate(id);return}
+    if(a==="open-workout"){showWorkoutDetail(id);return}
+    if(a==="new-template"){showNewTemplate();return}
+    if(a==="close-sheet"){closeSheet();return}
+    if(a==="add-exercise"){showAddExercise();return}
+    if(a==="add-ex"){addExercise(id);return}
+    if(a==="exercise-info"){showExerciseInfo(id);return}
+    if(a==="exercise-history"){showExerciseInfo(act.dataset.eid);return}
+    if(a==="use-exercise"){ if(db.activeWorkout)addExercise(id);else{closeSheet();ensureWorkout();addExercise(id)} return}
+    if(a==="new-exercise"){showNewExercise();return}
+    if(a==="create-exercise"){createExercise();return}
+    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);const mark=document.querySelector(\`[data-mark="\${id}"]\`);if(mark)mark.textContent=set.has(id)?"✓":"";return}
+    if(a==="create-template"){createTemplate();return}
+    if(a==="toggle-set"){
+      const ex=db.activeWorkout?.exercises.find(x=>x.id===act.dataset.ex), s=ex?.sets.find(x=>x.id===act.dataset.set); if(!s)return;
+      s.done=!s.done;save();if(s.done){if(navigator.vibrate)navigator.vibrate(10);startRest()}else stopRest();renderWorkout();return;
     }
-    if (a === "ex-history") showExHistory(act.dataset.eid);
-    if (a === "add-set") {
-      const ex = db.activeWorkout?.exercises.find((x) => x.id === act.dataset.id);
-      if (!ex) return;
-      const last = ex.sets[ex.sets.length - 1];
-      ex.sets.push({ id: uid(), n: ex.sets.length + 1, weight: last?.weight ?? "", reps: last?.reps ?? "", done: false });
-      save();
-      renderWorkout();
+    if(a==="add-set"){
+      const ex=db.activeWorkout?.exercises.find(x=>x.id===id);if(!ex)return;const last=ex.sets.at(-1);ex.sets.push({id:uid(),n:ex.sets.length+1,weight:last?.weight??"",reps:last?.reps??"",done:false});save();renderWorkout();return;
     }
-    if (a === "toggle-set") {
-      const { set } = findSet(act.dataset.ex, act.dataset.id);
-      if (!set) return;
-      set.done = !set.done;
-      save();
-      if (set.done) {
-        if (navigator.vibrate) navigator.vibrate(12);
-        startRest();
-      }
-      renderWorkout();
-    }
-    if (a === "delete-ex") {
-      db.activeWorkout.exercises = db.activeWorkout.exercises.filter((x) => x.id !== act.dataset.id);
-      save();
-      renderWorkout();
-    }
-    if (a === "delete-set") {
-      const ex = db.activeWorkout.exercises.find((x) => x.id === act.dataset.ex);
-      if (!ex) return;
-      ex.sets = ex.sets.filter((s) => s.id !== act.dataset.id).map((s, i) => ({ ...s, n: i + 1 }));
-      save();
-      renderWorkout();
-    }
-    if (a === "save-weight") {
-      const raw = $("#body-weight").value;
-      const kg = fromDisplayWeight(raw);
-      if (kg === "") { toast("Введите вес"); return; }
-      const num = (id) => {
-        const v = $(id).value.replace(",", ".");
-        return v === "" ? "" : Number(v);
-      };
-      db.metrics.push({ date: todayISO(), weight: kg, waist: num("#body-waist"), chest: num("#body-chest") });
-      save();
-      toast("Замеры сохранены");
-      renderProfile();
-    }
-    if (a === "save-settings") {
-      db.settings.theme = $("#theme-sel").value;
-      db.settings.restSeconds = Math.max(15, Number($("#rest-sec").value) || 90);
-      db.settings.units = $("#unit-sel").value;
-      save();
-      applyTheme();
-      toast("Настройки сохранены");
-      renderProfile();
-    }
-    if (a === "export") exportData();
-    if (a === "import") $("#import-file").click();
-    if (a === "toggle-tpl-ex") {
-      const selected = $("#sheet")._selected;
-      if (!selected) return;
-      if (selected.has(act.dataset.id)) selected.delete(act.dataset.id);
-      else selected.add(act.dataset.id);
-      const mark = document.querySelector(`[data-mark="${act.dataset.id}"]`);
-      if (mark) mark.textContent = selected.has(act.dataset.id) ? "✓" : "";
-    }
-    if (a === "create-tpl") {
-      const name = $("#tpl-name")?.value.trim();
-      const selected = [...($("#sheet")._selected || [])];
-      if (!name) { toast("Введите название"); return; }
-      if (!selected.length) { toast("Выберите упражнения"); return; }
-      db.templates.unshift({ id: uid(), name, exerciseIds: selected });
-      save();
-      closeSheet();
-      toast("Шаблон создан");
-      renderHome();
+    if(a==="finish-workout"){openSheet(\`<div class="sheet__title">Завершить тренировку?</div><div class="subtitle">Все сохранится на этом устройстве.</div><div class="stack" style="margin-top:14px"><button class="button button--primary" data-act="confirm-finish">Завершить</button><button class="button button--secondary" data-act="close-sheet">Продолжить</button></div>\`);return}
+    if(a==="confirm-finish"){finishWorkout();return}
+    if(a==="month-prev"){state.month.setMonth(state.month.getMonth()-1);renderProgress();return}
+    if(a==="month-next"){state.month.setMonth(state.month.getMonth()+1);renderProgress();return}
+    if(a==="pick-day"){state.selectedDay=act.dataset.iso;renderProgress();return}
+    if(a==="filter"){state.filter=act.dataset.filter;renderExercises();return}
+    if(a==="save-metrics"){saveMetrics();return}
+    if(a==="save-settings"){saveSettings();return}
+    if(a==="export"){exportData();toast("Файл готов");return}
+    if(a==="import"){$("#import-file")?.click();return}
+  });
+
+  document.addEventListener("input",e=>{
+    const t=e.target;
+    if(t.matches("#workout-name")&&db.activeWorkout){db.activeWorkout.name=t.value;save();return}
+    const exId=t.dataset.ex, setId=t.dataset.set, kind=t.dataset.kind;
+    if(exId&&setId&&kind){
+      const ex=db.activeWorkout?.exercises.find(x=>x.id===exId), s=ex?.sets.find(x=>x.id===setId); if(!s)return;
+      if(kind==="weight")s.weight=fromDisplayWeight(t.value); else s.reps=t.value===""?"":Number(t.value);
+      save(); return;
     }
   });
 
-  document.addEventListener("focusin", (e) => {
-    const input = e.target.closest("input[data-k]");
-    if (!input) return;
-    e.preventDefault();
-    input.blur();
-    openKeypad(input.dataset.ex, input.dataset.id, input.dataset.k);
+  document.addEventListener("change",e=>{
+    if(e.target.id==="import-file"&&e.target.files?.[0])importData(e.target.files[0]);
   });
 
-  document.addEventListener("change", (e) => {
-    if (e.target.id === "import-file" && e.target.files[0]) importData(e.target.files[0]);
-  });
-
-  document.addEventListener("input", (e) => {
-    if (e.target.id === "workout-name" && db.activeWorkout) {
-      db.activeWorkout.name = e.target.value;
-      save();
+  window.setInterval(()=>{
+    renderRest();
+    if(db.activeWorkout&&state.tab==="workout"){
+      const el=$("#duration"); if(el)el.textContent=fmtTime((Date.now()-db.activeWorkout.startedAt)/1000);
     }
-  });
+  },1000);
 
-  const restSkip = $("#rest-skip");
-  if (restSkip) restSkip.addEventListener("click", stopRest);
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
-  }
-
-  applyTheme();
-  startDurationClock();
-  setTab("home");
+  $("#sheet")?.addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
+  applyTheme(); setTab("home");
 })();
