@@ -305,6 +305,7 @@
     const badge = $("#workout-badge");
     if (badge) badge.classList.toggle("live", Boolean(db.activeWorkout));
   }
+  }
 
   function ensureWorkout() {
     if (db.activeWorkout) return db.activeWorkout;
@@ -427,6 +428,10 @@
   }
 
   function render() {
+  window.addEventListener("error", (event) => {
+    const root = $("#screen-home");
+    if (root && !root.innerHTML.trim()) root.innerHTML = `<div class="fatal"><b>Не удалось загрузить экран</b><span>Обнови страницу — данные тренировки сохраняются локально.</span><button class="btn btn--primary" onclick="location.reload()">Обновить</button></div>`;
+  });
     applyTheme();
     updateWorkoutBadge();
     updateRestBar();
