@@ -234,7 +234,7 @@
   function setTab(tab) {
     state.tab = tab;
     $$(".screen").forEach((s) => s.classList.toggle("active", s.dataset.tab === tab));
-    $$(".tabbar__item").forEach((b) => b.classList.toggle("active", b.dataset.nav === tab));
+    $(".tabbar__item").forEach((b) => b.classList.toggle("active", b.dataset.nav === tab));
     render();
   }
 
@@ -437,28 +437,79 @@
 
   function renderHome() {
     const count = workoutsThisWeek();
+    const weeklyGoal = 3;
+    const progress = Math.min(100, Math.round((count / weeklyGoal) * 100));
+    const last = db.workouts[0];
+    const lastVolume = last ? round(toDisplayWeight(volumeOf(last)) || 0, 0) : 0;
+    const lastSets = last ? last.exercises.reduce((n, ex) => n + ex.sets.filter((s) => s.done).length, 0) : 0;
+    const metric = db.metrics[db.metrics.length - 1];
+    const active = db.activeWorkout;
+
     $("#screen-home").innerHTML = `
-      <div class="page-header">
+      <div class="home-hero">
         <div>
+          <span class="eyebrow">ДНЕВНИК · СЕГОДНЯ</span>
           <h1>${greeting()}</h1>
-          <p class="sub">${count} ${plural(count, "тренировка", "тренировки", "тренировок")} на этой неделе</p>
+          <p class="sub">${active ? "Тренировка уже начата — продолжим?" : "Готов записать следующую тренировку?"}</p>
+        </div>
+        <div class="home-avatar">Т</div>
+      </div>
+
+      <div class="hero-action">
+        <div>
+          <span class="hero-action__eyebrow">${active ? "В ПРОЦЕССЕ" : "СЛЕДУЮЩИЙ ШАГ"}</span>
+          <h2>${active ? escapeHtml(active.name || "Тренировка") : "Начать тренировку"}</h2>
+          <p>${active ? "Продолжить с того места, где остановился" : "Отметь подходы, отдых и прогресс автоматически"}</p>
+        </div>
+        <button class="hero-action__button" data-act="start-empty" aria-label="${active ? "Продолжить" : "Начать"}">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="dashboard-card dashboard-card--wide">
+          <div class="dashboard-card__top"><span>Эта неделя</span><b>${count}/${weeklyGoal}</b></div>
+          <div class="progress-track"><span style="width:${progress}%"></span></div>
+          <p>${count >= weeklyGoal ? "Цель выполнена. Сохраняй ритм." : `Ещё ${weeklyGoal - count} до цели`}</p>
+        </div>
+        <div class="dashboard-card">
+          <span>Подходы</span><strong>${lastSets || "—"}</strong><small>в последней</small>
+        </div>
+        <div class="dashboard-card">
+          <span>Вес</span><strong>${metric ? toDisplayWeight(metric.weight) : "—"}</strong><small>${metric ? unitLabel() : "добавь замер"}</small>
         </div>
       </div>
-      <div class="quick-start">
-        <button class="btn btn--primary" data-act="start-empty">Начать пустую тренировку</button>
-      </div>
+
       <div class="section-title">
-        <span>Шаблоны</span>
-        <button class="link" data-act="new-template">Создать</button>
+        <span>Быстрый старт</span>
+        <button class="link" data-act="new-template">Новый план</button>
       </div>
       <div class="carousel">
         ${db.templates.length ? db.templates.map((t) => `
           <button class="template-card" data-act="start-template" data-id="${t.id}">
+            <span class="template-card__tag">ПЛАН</span>
             <h3>${escapeHtml(t.name)}</h3>
-            <p>${t.exerciseIds.length} упр. · нажмите, чтобы начать</p>
+            <p>${t.exerciseIds.length} упражнений</p>
           </button>
-        `).join("") : `<div class="empty">Пока нет шаблонов</div>`}
+        `).join("") : `<div class="empty">Создай первый план тренировки</div>`}
       </div>
+
+      <div class="section-title"><span>Последняя тренировка</span></div>
+      ${last ? `
+        <button class="last-workout" data-act="open-workout" data-id="${last.id}">
+          <div class="last-workout__icon">↗</div>
+          <div class="last-workout__main">
+            <b>${escapeHtml(last.name || "Тренировка")}</b>
+            <span>${new Date(last.finishedAt).toLocaleDateString("ru-RU", { day:"numeric", month:"long" })} · ${fmtTime(last.durationSec || 0)}</span>
+          </div>
+          <strong>${lastVolume ? lastVolume + " " + unitLabel() : "→"}</strong>
+        </button>
+      ` : `
+        <div class="empty-card">
+          <b>Здесь появится твой прогресс</b>
+          <span>Заверши первую тренировку — и приложение начнёт показывать динамику.</span>
+        </div>
+      `}
     `;
   }
 
