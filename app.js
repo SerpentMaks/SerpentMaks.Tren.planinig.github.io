@@ -234,7 +234,7 @@
   function setTab(tab) {
     state.tab = tab;
     $$(".screen").forEach((s) => s.classList.toggle("active", s.dataset.tab === tab));
-    $(".tabbar__item").forEach((b) => b.classList.toggle("active", b.dataset.nav === tab));
+    document.querySelectorAll(".tabbar__item").forEach((b) => b.classList.toggle("active", b.dataset.nav === tab));
     render();
   }
 
