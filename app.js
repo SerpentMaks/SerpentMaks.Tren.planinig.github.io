@@ -412,21 +412,20 @@
       <div class="section-head section-head--inner"><h2>Упражнения</h2><span class="count-badge" id="template-count">${selected.size}</span></div>
       <div class="exercise-list template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>{const cfg=t?.exerciseConfig?.[e.id]||{};return `<div class="template-exercise-wrap"><button class="exercise-item template-pick ${selected.has(e.id)?"is-picked":""}" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span class="pick-mark" data-mark="${e.id}">${selected.has(e.id)?"✓":"+"}</span></button>${selected.has(e.id)?`<div class="template-config"><div class="template-config__grid"><label>Подходы<input type="number" min="1" max="20" value="${cfg.sets||3}" data-tcfg-id="${e.id}" data-tcfg="sets"></label><label>Вес, кг<input inputmode="decimal" value="${cfg.weight??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="weight"></label><label>Повторы<input type="number" min="1" max="100" value="${cfg.reps??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="reps"></label></div><div class="template-config__progress"><label>Прогрессия веса<input value="${esc(cfg.weightProgression||"")}" placeholder="+2.5 кг / —" data-tcfg-id="${e.id}" data-tcfg="weightProgression"></label><label>Прогрессия повторов<input value="${esc(cfg.repsProgression||"")}" placeholder="+1 / —" data-tcfg-id="${e.id}" data-tcfg="repsProgression"></label></div></div>`: ""}</div>`}).join("")}</div>
       <div class="stack" style="margin-top:12px"><button class="button button--primary" data-act="save-template" data-id="${templateId||""}">${t?"Сохранить изменения":"Создать шаблон"}</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
-    $("#sheet")._selected=selected;
+    $("#sheet")._selected=selected; $("#sheet")._templateId=templateId;
   }
   function showTemplateEditorFromSelection(selected){
     const currentName=$("#template-name")?.value||"";
     const configs={};
     $("[data-tcfg-id]").forEach(el=>{const id=el.dataset.tcfgId;configs[id]=configs[id]||{};configs[id][el.dataset.tcfg]=el.value;});
-    const temp={id:"__draft__",name:currentName,exerciseIds:[...selected],exerciseConfig:configs};
+    const temp={id:$("#sheet")._templateId||"",name:currentName,exerciseIds:[...selected],exerciseConfig:configs};
     openSheet(`
       <div class="sheet__title">Редактировать шаблон</div>
       <div class="field" style="margin-top:10px"><label>Название тренировки</label><input id="template-name" placeholder="Например, Грудь + спина" value="${esc(currentName)}"></div>
       <div class="section-head section-head--inner"><h2>Упражнения и план</h2><span class="count-badge" id="template-count">${selected.size}</span></div>
       <div class="exercise-list template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>{const cfg=temp.exerciseConfig?.[e.id]||{};return `<div class="template-exercise-wrap"><button class="exercise-item template-pick ${selected.has(e.id)?"is-picked":""}" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span class="pick-mark" data-mark="${e.id}">${selected.has(e.id)?"✓":"+"}</span></button>${selected.has(e.id)?`<div class="template-config"><div class="template-config__grid"><label>Подходы<input type="number" min="1" max="20" value="${cfg.sets||3}" data-tcfg-id="${e.id}" data-tcfg="sets"></label><label>Вес, кг<input inputmode="decimal" value="${cfg.weight??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="weight"></label><label>Повторы<input type="number" min="1" max="100" value="${cfg.reps??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="reps"></label></div><div class="template-config__progress"><label>Прогрессия веса<input value="${esc(cfg.weightProgression||"")}" placeholder="+2.5 кг / —" data-tcfg-id="${e.id}" data-tcfg="weightProgression"></label><label>Прогрессия повторов<input value="${esc(cfg.repsProgression||"")}" placeholder="+1 / —" data-tcfg-id="${e.id}" data-tcfg="repsProgression"></label></div></div>`:""}</div>`}).join("")}</div>
-      <div class="stack" style="margin-top:12px"><button class="button button--primary" data-act="save-template" data-id="">Создать / сохранить шаблон</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
-    $("#sheet")._selected=selected;
-    $("#sheet")._draftConfig=configs;
+      <div class="stack" style="margin-top:12px"><button class="button button--primary" data-act="save-template" data-id="${temp.id}">${temp.id?"Сохранить изменения":"Создать шаблон"}</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
+    $("#sheet")._selected=selected; $("#sheet")._templateId=temp.id; $("#sheet")._draftConfig=configs;
   }
 
   function showSchedulePicker(){
