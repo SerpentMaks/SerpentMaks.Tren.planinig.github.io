@@ -85,11 +85,11 @@
   function openSheet(html){
     const el=$("#sheet"); if(!el)return;
     el.innerHTML='<div class="sheet__panel"><div class="sheet__grab"></div>'+html+"</div>";
-    el.classList.remove("is-hidden"); el.setAttribute("aria-hidden","false");
+    el.classList.remove("is-hidden"); el.classList.toggle("is-rest-timer",html.includes("rest-timer-sheet")); el.setAttribute("aria-hidden","false");
   }
   function closeSheet(){
     const el=$("#sheet"); if(!el)return;
-    el.classList.add("is-hidden"); el.innerHTML=""; el.setAttribute("aria-hidden","true"); state.sheet=null;
+    el.classList.add("is-hidden"); el.classList.remove("is-rest-timer"); el.innerHTML=""; el.setAttribute("aria-hidden","true"); state.sheet=null;
   }
   function setTab(tab){
     state.tab=tab;
@@ -159,28 +159,24 @@
     const w={...db.activeWorkout,finishedAt:Date.now(),durationSec:Math.round((Date.now()-db.activeWorkout.startedAt)/1000)};
     db.workouts.unshift(w); db.activeWorkout=null; stopRest(); save(); closeSheet(); setTab("progress"); toast("Тренировка сохранена");
   }
+  function primeRestAudio(){try{if(db.settings.soundEnabled===false)return;const C=window.AudioContext||window.webkitAudioContext;if(C){const ctx=window.__trainerAudio||(window.__trainerAudio=new C());if(ctx.state==="suspended")ctx.resume();}}catch(e){}}
   function startRest(){
-    stopRest();
+    stopRest(); primeRestAudio();
     state.restTotal=Number(db.settings.restSeconds)||90; state.restLeft=state.restTotal;
     const tick=()=>{state.restLeft--; renderRest(); if(state.restLeft<=0){stopRest();notifyRestEnd();toast("Отдых закончен");}};
-    state.restTimer=setInterval(tick,1000); renderRest();
+    state.restTimer=setInterval(tick,1000); renderRest(); showRestTimer();
   }
   function notifyRestEnd(){
-    if(db.settings.soundEnabled!==false){
-      try{
-        const C=window.AudioContext||window.webkitAudioContext; if(C){
-          const ctx=window.__trainerAudio||(window.__trainerAudio=new C());
-          ctx.resume?.(); const now=ctx.currentTime;
-          [0,0.16].forEach((delay,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=i?880:660;g.gain.setValueAtTime(.0001,now+delay);g.gain.exponentialRampToValueAtTime(.16,now+delay+.015);g.gain.exponentialRampToValueAtTime(.0001,now+delay+.13);o.connect(g);g.connect(ctx.destination);o.start(now+delay);o.stop(now+delay+.14);});
-        }
-      }catch(e){}
-    }
-    if(db.settings.vibrationEnabled!==false&&navigator.vibrate) navigator.vibrate([180,80,180]);
+    if(db.settings.soundEnabled!==false){try{const ctx=window.__trainerAudio;if(ctx){if(ctx.state==="suspended")ctx.resume();const now=ctx.currentTime;[0,0.16,0.32].forEach((delay,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=[660,880,1046][i];g.gain.setValueAtTime(.0001,now+delay);g.gain.exponentialRampToValueAtTime(.5,now+delay+.02);g.gain.exponentialRampToValueAtTime(.0001,now+delay+.3);o.connect(g);g.connect(ctx.destination);o.start(now+delay);o.stop(now+delay+.31);});}}catch(e){}}
+    if(db.settings.vibrationEnabled!==false&&navigator.vibrate)navigator.vibrate([220,90,220,90,320]);
+    closeRestTimer();
   }
   function stopRest(){
     if(state.restTimer)clearInterval(state.restTimer);
-    state.restTimer=null; state.restLeft=0; renderRest();
+    state.restTimer=null; state.restLeft=0; renderRest(); closeRestTimer();
   }
+  function showRestTimer(){const left=Math.max(0,state.restLeft),total=Math.max(1,state.restTotal);openSheet('<div class="rest-timer-sheet"><div class="kicker">ОТДЫХ МЕЖДУ ПОДХОДАМИ</div><div class="rest-timer-value" id="rest-modal-value">'+fmtTime(left)+'</div><div class="rest-timer-progress"><span id="rest-modal-progress" style="width:'+Math.max(0,Math.min(100,(left/total)*100))+'%"></span></div><p>Следующий подход — когда будешь готов.</p><button class="button button--primary rest-skip" data-act="skip-rest">Пропустить отдых</button></div>');}
+  function closeRestTimer(){const el=$("#sheet");if(el?.classList.contains("is-rest-timer"))closeSheet();}
   function renderRest(){
     const pill=$("#active-pill"); if(!pill)return;
     if(state.restLeft>0){pill.textContent="Отдых "+fmtTime(state.restLeft);pill.classList.remove("is-hidden")}
@@ -329,7 +325,7 @@
     $("#screen-exercises").innerHTML=`
       <div class="container">
         <div class="screen-title"><div class="row row--between"><div><div class="kicker">Библиотека</div><h1>Упражнения</h1></div><button class="button button--small" data-act="new-exercise">＋ Добавить</button></div></div>
-        <input id="exercise-search" class="search" placeholder="Поиск упражнения" value="${esc(state.search)}">
+        <div class="exercise-tools"><button class="button button--secondary button--small" data-act="export-exercises">Экспортировать</button><button class="button button--secondary button--small" data-act="import-exercises">Импортировать</button><input id="exercise-import-file" type="file" accept=".json,application/json" hidden></div><input id="exercise-search" class="search" placeholder="Поиск упражнения" value="${esc(state.search)}">
         <div class="chips"><button class="chip ${state.filter==="all"?"active":""}" data-act="filter" data-filter="all">Все</button>${MUSCLES.map(m=>`<button class="chip ${state.filter===m[0]?"active":""}" data-act="filter" data-filter="${m[0]}">${m[1]}</button>`).join("")}</div>
         <div class="exercise-list">${items.map(e=>`<button class="exercise-item" data-act="exercise-info" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}${e.custom?" · своё":""}</span></span><span class="exercise-item__chev">›</span></button>`).join("")||`<div class="empty-state">Ничего не найдено.</div>`}</div>
       </div>`;
@@ -506,6 +502,8 @@
     if(!selected.length){toast("Выбери хотя бы одно упражнение");return}
     db.templates.unshift({id:uid(),name,exerciseIds:selected});save();closeSheet();toast("План создан");renderHome();
   }
+    function exportExercises(){const payload={format:"trainer-exercises-v1",exercises:db.exercises.map(e=>({name:e.name,muscle:e.muscle,description:e.description||""}))};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="trainer-exercises.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast("Упражнения экспортированы");}
+  function importExercises(file){const reader=new FileReader();reader.onload=()=>{try{const p=JSON.parse(reader.result);if(!Array.isArray(p.exercises))throw new Error();let added=0; p.exercises.forEach(x=>{if(!x?.name||!x?.muscle)return;const name=String(x.name).trim();if(db.exercises.some(y=>y.name.toLowerCase()===name.toLowerCase()))return;db.exercises.push({id:uid(),name,muscle:String(x.muscle),description:String(x.description||""),custom:true});added++;});save();renderExercises();toast("Добавлено упражнений: "+added);}catch{toast("Не удалось импортировать упражнения")}};reader.readAsText(file);}
   function exportData(){
     const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="dnevnik-trenirovok.json";a.click();URL.revokeObjectURL(a.href);
@@ -525,7 +523,7 @@
     if(a==="start-template"){startTemplate(id);return}
     if(a==="open-workout"){showWorkoutDetail(id);return}
     if(a==="manage-templates"){showTemplateManager();return} if(a==="new-template"){showTemplateEditor();return} if(a==="edit-template"){showTemplateEditor(id);return} if(a==="delete-template"){db.templates=db.templates.filter(t=>t.id!==id);save();showTemplateManager();toast("Шаблон удалён");return}
-    if(a==="close-sheet"){closeSheet();return}
+    if(a==="close-sheet"){closeSheet();return} if(a==="skip-rest"){stopRest();closeRestTimer();toast("Отдых пропущен");return}
     if(a==="add-exercise"){showAddExercise();return}
     if(a==="add-ex"){addExercise(id);return}
     if(a==="exercise-info"){showExerciseInfo(id);return} if(a==="edit-exercise-description"){editExerciseDescription(id);return} if(a==="save-exercise-description"){const e=findExercise(id);if(e){e.description=$("#exercise-description")?.value?.trim()||"";save();showExerciseInfo(id);toast("Описание сохранено")}return}
@@ -551,7 +549,7 @@
     if(a==="save-metrics"){saveMetrics();return}
     if(a==="save-settings"){saveSettings();return}
     if(a==="export"){exportData();toast("Файл готов");return}
-    if(a==="import"){$("#import-file")?.click();return}
+    if(a==="import"){$("#import-file")?.click();return} if(a==="export-exercises"){exportExercises();return} if(a==="import-exercises"){$("#exercise-import-file")?.click();return}
   });
 
   document.addEventListener("input",e=>{
@@ -566,7 +564,7 @@
   });
 
   document.addEventListener("change",e=>{
-    if(e.target.id==="import-file"&&e.target.files?.[0])importData(e.target.files[0]);
+    if(e.target.id==="import-file"&&e.target.files?.[0])importData(e.target.files[0]); if(e.target.id==="exercise-import-file"&&e.target.files?.[0])importExercises(e.target.files[0]);
   });
 
   window.setInterval(()=>{
