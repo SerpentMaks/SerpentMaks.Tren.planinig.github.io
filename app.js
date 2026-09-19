@@ -41,7 +41,7 @@
     const exercises=DEFAULTS.map(([name,m])=>({id:uid(),name,muscle:m,custom:false,description:""}));
     const id=n=>exercises.find(e=>e.name===n)?.id;
     return {
-      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,soundEnabled:true,vibrationEnabled:true,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()}},
+      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,soundEnabled:true,vibrationEnabled:true,schedule:{mode:"interval",intervalDays:2,intervalOrder:[],intervalStart:today()}},
       exercises,
       templates:[
         {id:uid(),name:"Грудь + трицепс",exerciseIds:["Жим штанги лёжа","Жим гантелей лёжа","Разведения гантелей","Французский жим","Разгибания на блоке"].map(id)},
@@ -57,7 +57,7 @@
       const raw=localStorage.getItem(KEY);
       if(!raw) return createSeed();
       const d=JSON.parse(raw);
-      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,soundEnabled:true,vibrationEnabled:true,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()},...(d.settings||{})}; d.settings.schedule={mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today(),...(d.settings.schedule||{})};
+      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,soundEnabled:true,vibrationEnabled:true,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()},...(d.settings||{})}; d.settings.schedule={mode:"interval",intervalDays:2,intervalOrder:[],intervalStart:today(),...(d.settings.schedule||{})}; if(d.settings.schedule.mode==="weekly")d.settings.schedule.mode="interval";
       d.exercises=Array.isArray(d.exercises)&&d.exercises.length?d.exercises:createSeed().exercises;
       d.templates=Array.isArray(d.templates)?d.templates:[];
       d.workouts=Array.isArray(d.workouts)?d.workouts:[];
@@ -350,7 +350,7 @@
 
         <div class="section-head"><h2>Расписание тренировок</h2></div>
         <div class="schedule-editor card">
-          <div class="segmented"><button class="${(db.settings.schedule?.mode||"weekly")==="weekly"?"active":""}" data-act="schedule-mode" data-mode="weekly">По дням</button><button class="${db.settings.schedule?.mode==="interval"?"active":""}" data-act="schedule-mode" data-mode="interval">Через интервал</button></div>
+          <div class="schedule-mode-badge">ЧЕРЕЗ ИНТЕРВАЛ</div>
           ${(db.settings.schedule?.mode||"weekly")==="weekly"?`<div class="schedule-list">${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d,i)=>`<div class="schedule-row"><span class="schedule-day">${d}</span><select data-schedule-day="${i}"><option value="">Отдых</option>${db.templates.map(t=>`<option value="${t.id}" ${db.settings.schedule?.weekly?.[i]===t.id?"selected":""}>${esc(t.name)}</option>`).join("")}</select></div>`).join("")}</div><p class="schedule-note">Назначь отдельный шаблон на каждый день. Пустой день остаётся днём отдыха.</p>`:`<div class="interval-settings"><div class="field field--compact"><label>Интервал</label><select id="interval-days">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${Number(db.settings.schedule?.intervalDays||2)===n?"selected":""}>Каждые ${n} ${plural(n,"день","дня","дней")}</option>`).join("")}</select></div><div class="field field--compact"><label>Начало цикла</label><input id="interval-start" type="date" value="${db.settings.schedule?.intervalStart||today()}"></div></div><div class="section-head section-head--inner"><h2>Порядок чередования</h2></div><div class="schedule-list">${[0,1,2,3].map(i=>`<div class="schedule-row"><span class="schedule-day">${i+1}</span><select data-interval-order="${i}"><option value="">—</option>${db.templates.map(t=>`<option value="${t.id}" ${db.settings.schedule?.intervalOrder?.[i]===t.id?"selected":""}>${esc(t.name)}</option>`).join("")}</select></div>`).join("")}</div><p class="schedule-note">Например: Грудь + спина → Ноги → Плечи. Цикл повторяется по кругу.</p>`}
           <button class="button button--secondary" data-act="save-schedule">Сохранить расписание</button>
         </div>
@@ -466,7 +466,11 @@
   }
   function saveSchedule(){
     const s=db.settings.schedule||{};
-    if(s.mode==="interval"){s.intervalDays=Math.max(1,Math.min(14,Number($("#interval-days")?.value)||2));s.intervalStart=$("#interval-start")?.value||today();s.intervalOrder=[0,1,2,3].map(i=>$(`[data-interval-order="${i}"]`)?.value||"").filter(Boolean);if(!s.intervalOrder.length){toast("Добавь шаблон в цикл");return}} else {s.weekly={};$("[data-schedule-day]").forEach(el=>{if(el.value)s.weekly[el.dataset.scheduleDay]=el.value;});}
+    s.mode="interval";
+    s.intervalDays=Math.max(1,Math.min(14,Number($("#interval-days")?.value)||2));
+    s.intervalStart=$("#interval-start")?.value||today();
+    s.intervalOrder=[0,1,2,3].map(i=>$('[data-interval-order="'+i+'"]')?.value||"").filter(Boolean);
+    if(!s.intervalOrder.length){toast("Добавь шаблон в цикл");return}
     db.settings.schedule=s;save();renderProfile();toast("Расписание сохранено");
   }
   function showWorkoutDetail(id){
@@ -529,7 +533,7 @@
     if(a==="use-exercise"){ if(db.activeWorkout)addExercise(id);else{closeSheet();ensureWorkout();addExercise(id)} return}
     if(a==="new-exercise"){showNewExercise();return}
     if(a==="create-exercise"){createExercise();return}
-    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);showTemplateEditorFromSelection(set);return} if(a==="save-template"){saveTemplate(id||null);return} if(a==="schedule-mode"){db.settings.schedule.mode=act.dataset.mode;save();renderProfile();return} if(a==="save-schedule"){saveSchedule();return} if(a==="open-profile-schedule"){closeSheet();setTab("profile");return}
+    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);showTemplateEditorFromSelection(set);return} if(a==="save-template"){saveTemplate(id||null);return} if(a==="schedule-mode"){return} if(a==="save-schedule"){saveSchedule();return} if(a==="open-profile-schedule"){closeSheet();setTab("profile");return}
     if(a==="create-template"){createTemplate();return}
     if(a==="toggle-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===act.dataset.ex), s=ex?.sets.find(x=>x.id===act.dataset.set); if(!s)return;
