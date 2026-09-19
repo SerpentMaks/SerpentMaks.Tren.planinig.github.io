@@ -75,7 +75,7 @@
     const t=db.settings.theme==="light"?"light":"dark";
     document.documentElement.dataset.theme=t;
     const m=$('meta[name="theme-color"]');
-    if(m)m.content=t==="light"?"#f4f6f8":"#090c10";
+    if(m)m.content=t==="light"?"#f4f6f8":"#090a0f";
   }
   function toast(msg){
     const el=$("#toast"); if(!el)return;
