@@ -126,10 +126,13 @@
     for(const w of arr){const ex=w.exercises?.find(x=>x.exerciseId===exerciseId); const done=ex?.sets?.filter(s=>s.done&&s.weight!==""&&s.reps!==""); if(done?.length)return done;}
     return [];
   }
-  function makeWorkoutExercise(exerciseId){
+  function makeWorkoutExercise(exerciseId, config=null){
     const e=findExercise(exerciseId); if(!e)return null;
     const prev=lastSets(exerciseId)[0]||null;
-    return {id:uid(),exerciseId,name:e.name,sets:[1,2,3].map(n=>({id:uid(),n,weight:prev?.weight??"",reps:prev?.reps??"",done:false}))};
+    const count=Math.max(1,Math.min(20,Number(config?.sets)||3));
+    const baseWeight=config?.weight!==""&&config?.weight!=null?fromDisplayWeight(config.weight):(prev?.weight??"");
+    const baseReps=config?.reps!==""&&config?.reps!=null?Number(config.reps):(prev?.reps??"");
+    return {id:uid(),exerciseId,name:e.name,weightProgression:config?.weightProgression||"",repsProgression:config?.repsProgression||"",sets:Array.from({length:count},(_,i)=>({id:uid(),n:i+1,weight:baseWeight,reps:baseReps,done:false}))};
   }
   function ensureWorkout(){
     if(db.activeWorkout)return db.activeWorkout;
@@ -139,7 +142,7 @@
   function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; if(s.mode==="interval" && s.intervalOrder?.length){ const start=new Date((s.intervalStart||today())+"T12:00:00"), cur=new Date(date); cur.setHours(12,0,0,0); const diff=Math.floor((cur-start)/86400000), every=Math.max(1,Number(s.intervalDays)||2); if(diff>=0 && diff%every===0) return db.templates.find(t=>t.id===s.intervalOrder[(Math.floor(diff/every))%s.intervalOrder.length])||null; return null; } const dow=(new Date(date).getDay()+6)%7; return db.templates.find(t=>t.id===s.weekly?.[dow])||null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
     if(db.activeWorkout){setTab("workout");toast("Сначала заверши текущую тренировку");return}
     const t=db.templates.find(x=>x.id===id); if(!t)return;
-    const w=ensureWorkout(); w.name=t.name; w.exercises=t.exerciseIds.map(makeWorkoutExercise).filter(Boolean);
+    const w=ensureWorkout(); w.name=t.name; w.exercises=t.exerciseIds.map(id=>makeWorkoutExercise(id,t.exerciseConfig?.[id]||null)).filter(Boolean);
     save(); setTab("workout");
   }
   function addExercise(id){
@@ -407,17 +410,38 @@
       <div class="sheet__title">${t?"Редактировать шаблон":"Новый шаблон"}</div>
       <div class="field" style="margin-top:10px"><label>Название тренировки</label><input id="template-name" placeholder="Например, Грудь + спина" value="${esc(t?.name||"")}"></div>
       <div class="section-head section-head--inner"><h2>Упражнения</h2><span class="count-badge" id="template-count">${selected.size}</span></div>
-      <div class="exercise-list template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>`<button class="exercise-item template-pick ${selected.has(e.id)?"is-picked":""}" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span class="pick-mark" data-mark="${e.id}">${selected.has(e.id)?"✓":"+"}</span></button>`).join("")}</div>
+      <div class="exercise-list template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>{const cfg=t?.exerciseConfig?.[e.id]||{};return `<div class="template-exercise-wrap"><button class="exercise-item template-pick ${selected.has(e.id)?"is-picked":""}" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span class="pick-mark" data-mark="${e.id}">${selected.has(e.id)?"✓":"+"}</span></button>${selected.has(e.id)?`<div class="template-config"><div class="template-config__grid"><label>Подходы<input type="number" min="1" max="20" value="${cfg.sets||3}" data-tcfg-id="${e.id}" data-tcfg="sets"></label><label>Вес, кг<input inputmode="decimal" value="${cfg.weight??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="weight"></label><label>Повторы<input type="number" min="1" max="100" value="${cfg.reps??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="reps"></label></div><div class="template-config__progress"><label>Прогрессия веса<input value="${esc(cfg.weightProgression||"")}" placeholder="+2.5 кг / —" data-tcfg-id="${e.id}" data-tcfg="weightProgression"></label><label>Прогрессия повторов<input value="${esc(cfg.repsProgression||"")}" placeholder="+1 / —" data-tcfg-id="${e.id}" data-tcfg="repsProgression"></label></div></div>`: ""}</div>`}).join("")}</div>
       <div class="stack" style="margin-top:12px"><button class="button button--primary" data-act="save-template" data-id="${templateId||""}">${t?"Сохранить изменения":"Создать шаблон"}</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
     $("#sheet")._selected=selected;
   }
+  function showTemplateEditorFromSelection(selected){
+    const currentName=$("#template-name")?.value||"";
+    const configs={};
+    $("[data-tcfg-id]").forEach(el=>{const id=el.dataset.tcfgId;configs[id]=configs[id]||{};configs[id][el.dataset.tcfg]=el.value;});
+    const temp={id:"__draft__",name:currentName,exerciseIds:[...selected],exerciseConfig:configs};
+    openSheet(`
+      <div class="sheet__title">Редактировать шаблон</div>
+      <div class="field" style="margin-top:10px"><label>Название тренировки</label><input id="template-name" placeholder="Например, Грудь + спина" value="${esc(currentName)}"></div>
+      <div class="section-head section-head--inner"><h2>Упражнения и план</h2><span class="count-badge" id="template-count">${selected.size}</span></div>
+      <div class="exercise-list template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>{const cfg=temp.exerciseConfig?.[e.id]||{};return `<div class="template-exercise-wrap"><button class="exercise-item template-pick ${selected.has(e.id)?"is-picked":""}" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span class="pick-mark" data-mark="${e.id}">${selected.has(e.id)?"✓":"+"}</span></button>${selected.has(e.id)?`<div class="template-config"><div class="template-config__grid"><label>Подходы<input type="number" min="1" max="20" value="${cfg.sets||3}" data-tcfg-id="${e.id}" data-tcfg="sets"></label><label>Вес, кг<input inputmode="decimal" value="${cfg.weight??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="weight"></label><label>Повторы<input type="number" min="1" max="100" value="${cfg.reps??""}" placeholder="—" data-tcfg-id="${e.id}" data-tcfg="reps"></label></div><div class="template-config__progress"><label>Прогрессия веса<input value="${esc(cfg.weightProgression||"")}" placeholder="+2.5 кг / —" data-tcfg-id="${e.id}" data-tcfg="weightProgression"></label><label>Прогрессия повторов<input value="${esc(cfg.repsProgression||"")}" placeholder="+1 / —" data-tcfg-id="${e.id}" data-tcfg="repsProgression"></label></div></div>`:""}</div>`}).join("")}</div>
+      <div class="stack" style="margin-top:12px"><button class="button button--primary" data-act="save-template" data-id="">Создать / сохранить шаблон</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
+    $("#sheet")._selected=selected;
+    $("#sheet")._draftConfig=configs;
+  }
+
   function showSchedulePicker(){
     openSheet(`<div class="sheet__title">На сегодня нет плана</div><div class="subtitle">Выбери шаблон сейчас или настрой постоянное расписание в профиле.</div><div class="stack" style="margin-top:14px">${db.templates.map(t=>`<button class="card list-card workout-preview" data-act="start-template" data-id="${t.id}"><span class="workout-preview__icon">↗</span><span class="workout-preview__main"><b>${esc(t.name)}</b><span>${t.exerciseIds.length} упражнений</span></span><span>›</span></button>`).join("")}</div><button class="button button--secondary" style="margin-top:10px" data-act="open-profile-schedule">Настроить расписание</button>`);
   }
   function saveTemplate(templateId){
     const name=$("#template-name")?.value?.trim(), selected=[...($("#sheet")._selected||[])];
     if(!name||!selected.length){toast(!name?"Введи название":"Добавь хотя бы одно упражнение");return}
-    if(templateId){const t=db.templates.find(x=>x.id===templateId);if(t){t.name=name;t.exerciseIds=selected;}} else db.templates.unshift({id:uid(),name,exerciseIds:selected});
+    const exerciseConfig={};
+    selected.forEach(exId=>{
+      const get=kind=>document.querySelector(`[data-tcfg-id="${exId}"][data-tcfg="${kind}"]`)?.value??"";
+      exerciseConfig[exId]={sets:Math.max(1,Math.min(20,Number(get("sets"))||3)),weight:get("weight"),reps:get("reps"),weightProgression:get("weightProgression").trim(),repsProgression:get("repsProgression").trim()};
+    });
+    if(templateId){const t=db.templates.find(x=>x.id===templateId);if(t){t.name=name;t.exerciseIds=selected;t.exerciseConfig=exerciseConfig;}}
+    else db.templates.unshift({id:uid(),name,exerciseIds:selected,exerciseConfig});
     save();showTemplateManager();toast(templateId?"Шаблон обновлён":"Шаблон создан");
   }
   function saveSchedule(){
@@ -431,7 +455,7 @@
       <div class="sheet__title">${esc(w.name)}</div>
       <div class="subtitle">${new Date(w.finishedAt).toLocaleString("ru-RU")} · ${fmtTime(w.durationSec||0)} · ${round(toDisplayWeight(volume(w)),0)||0} ${weightLabel()}</div>
       <div class="section-head"><h2>Упражнения</h2></div>
-      <div class="stack">${w.exercises.map(ex=>`<div class="rec-card"><b>${esc(ex.name)}</b><span>${ex.sets.filter(s=>s.done).map(s=>`${toDisplayWeight(s.weight)} × ${s.reps}`).join(" · ")||"Нет выполненных подходов"}</span></div>`).join("")}</div>
+      <div class="stack">${w.exercises.map(ex=>`<div class="rec-card"><b>${esc(ex.name)}</b>${(ex.weightProgression||ex.repsProgression)?`<span class="exercise-plan-note">План: ${esc(ex.weightProgression||"—")} вес · ${esc(ex.repsProgression||"—")} повт.</span>`:""}<span>${ex.sets.filter(s=>s.done).map(s=>`${toDisplayWeight(s.weight)} × ${s.reps}`).join(" · ")||"Нет выполненных подходов"}</span></div>`).join("")}</div>
       <button class="button button--secondary" style="margin-top:12px" data-act="close-sheet">Закрыть</button>`);
   }
 
@@ -485,7 +509,7 @@
     if(a==="use-exercise"){ if(db.activeWorkout)addExercise(id);else{closeSheet();ensureWorkout();addExercise(id)} return}
     if(a==="new-exercise"){showNewExercise();return}
     if(a==="create-exercise"){createExercise();return}
-    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);const item=act.closest(".template-pick"),mark=act.querySelector("[data-mark]")||document.querySelector(`[data-mark="${id}"]`);item?.classList.toggle("is-picked",set.has(id));if(mark)mark.textContent=set.has(id)?"✓":"+";const count=$("#template-count");if(count)count.textContent=set.size;return} if(a==="save-template"){saveTemplate(id||null);return} if(a==="schedule-mode"){db.settings.schedule.mode=act.dataset.mode;save();renderProfile();return} if(a==="save-schedule"){saveSchedule();return} if(a==="open-profile-schedule"){closeSheet();setTab("profile");return}
+    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);showTemplateEditorFromSelection(set);return} if(a==="save-template"){saveTemplate(id||null);return} if(a==="schedule-mode"){db.settings.schedule.mode=act.dataset.mode;save();renderProfile();return} if(a==="save-schedule"){saveSchedule();return} if(a==="open-profile-schedule"){closeSheet();setTab("profile");return}
     if(a==="create-template"){createTemplate();return}
     if(a==="toggle-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===act.dataset.ex), s=ex?.sets.find(x=>x.id===act.dataset.set); if(!s)return;
