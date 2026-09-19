@@ -142,7 +142,7 @@
     db.activeWorkout={id:uid(),name:"Тренировка",startedAt:Date.now(),exercises:[]};
     save(); return db.activeWorkout;
   }
-  function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; if(s.mode==="interval" && s.intervalOrder?.length){ const start=new Date((s.intervalStart||today())+"T12:00:00"), cur=new Date(date); cur.setHours(12,0,0,0); const diff=Math.floor((cur-start)/86400000), every=Math.max(1,Number(s.intervalDays)||2); if(diff>=0 && diff%every===0) return db.templates.find(t=>t.id===s.intervalOrder[(Math.floor(diff/every))%s.intervalOrder.length])||null; return null; } const dow=(new Date(date).getDay()+6)%7; return db.templates.find(t=>t.id===s.weekly?.[dow])||null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
+  function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; if(s.mode==="interval" && s.intervalOrder?.length){ const start=new Date((s.intervalStart||today())+"T12:00:00"), cur=new Date(date); cur.setHours(12,0,0,0); const diff=Math.floor((cur-start)/86400000), every=Math.max(1,Number(s.intervalDays)||2); if(diff>=0 && diff%every===0) return db.templates.find(t=>t.id===s.intervalOrder[(Math.floor(diff/every))%s.intervalOrder.length])||null; return null; } return null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
     closeSheet();
     if(db.activeWorkout){setTab("workout");toast("Сначала заверши текущую тренировку");return}
     const t=db.templates.find(x=>x.id===id); if(!t)return;
