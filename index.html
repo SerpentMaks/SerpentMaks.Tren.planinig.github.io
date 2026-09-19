@@ -9,7 +9,7 @@
   <title>Тренер — дневник тренировок</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./styles.css?v=8">
 </head>
 <body>
   <div id="app">
@@ -29,7 +29,7 @@
     <nav class="tabbar" aria-label="Навигация">
       <button class="tabbar__item" data-nav="home"><span class="tabbar__icon">⌂</span><span>Сегодня</span></button>
       <button class="tabbar__item" data-nav="progress"><span class="tabbar__icon">↗</span><span>Прогресс</span></button>
-      <button class="tabbar__item tabbar__item--main" data-nav="workout"><span class="tabbar__plus">+</span><span>Тренировка</span></button>
+      <button class="tabbar__item tabbar__item--main" data-act="manage-templates" aria-label="Шаблоны тренировок"><span class="tabbar__plus">+</span><span>Планы</span></button>
       <button class="tabbar__item" data-nav="exercises"><span class="tabbar__icon">≡</span><span>Упражнения</span></button>
       <button class="tabbar__item" data-nav="profile"><span class="tabbar__icon">○</span><span>Профиль</span></button>
     </nav>
@@ -38,6 +38,6 @@
   <div id="sheet" class="sheet is-hidden" aria-hidden="true"></div>
   <div id="toast" class="toast is-hidden" aria-live="polite"></div>
 
-  <script src="./app.js?v=7"></script>
+  <script src="./app.js?v=8"></script>
 </body>
 </html>
