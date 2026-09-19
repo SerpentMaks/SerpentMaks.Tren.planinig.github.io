@@ -41,7 +41,7 @@
     const exercises=DEFAULTS.map(([name,m])=>({id:uid(),name,muscle:m,custom:false}));
     const id=n=>exercises.find(e=>e.name===n)?.id;
     return {
-      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3},
+      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()}},
       exercises,
       templates:[
         {id:uid(),name:"Грудь + трицепс",exerciseIds:["Жим штанги лёжа","Жим гантелей лёжа","Разведения гантелей","Французский жим","Разгибания на блоке"].map(id)},
@@ -57,7 +57,7 @@
       const raw=localStorage.getItem(KEY);
       if(!raw) return createSeed();
       const d=JSON.parse(raw);
-      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,...(d.settings||{})};
+      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()},...(d.settings||{})}; d.settings.schedule={mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today(),...(d.settings.schedule||{})};
       d.exercises=Array.isArray(d.exercises)&&d.exercises.length?d.exercises:createSeed().exercises;
       d.templates=Array.isArray(d.templates)?d.templates:[];
       d.workouts=Array.isArray(d.workouts)?d.workouts:[];
@@ -136,10 +136,7 @@
     db.activeWorkout={id:uid(),name:"Тренировка",startedAt:Date.now(),exercises:[]};
     save(); return db.activeWorkout;
   }
-  function startEmpty(){
-    ensureWorkout(); setTab("workout");
-  }
-  function startTemplate(id){
+  function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; const dow=(new Date(date).getDay()+6)%7; return db.templates.find(t=>t.id===s.weekly?.[dow])||null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
     if(db.activeWorkout){setTab("workout");toast("Сначала заверши текущую тренировку");return}
     const t=db.templates.find(x=>x.id===id); if(!t)return;
     const w=ensureWorkout(); w.name=t.name; w.exercises=t.exerciseIds.map(makeWorkoutExercise).filter(Boolean);
@@ -192,7 +189,7 @@
             <div class="hero__mark">Т</div>
           </div>
         </div>
-        <button class="card hero-cta" data-act="${active?"continue-workout":"start-empty"}">
+        <button class="card hero-cta" data-act="${active?"continue-workout":"start-scheduled"}">
           <div class="hero-cta__copy">
             <div class="kicker">${active?"В ПРОЦЕССЕ":"БЫСТРЫЙ СТАРТ"}</div>
             <h2>${active?esc(active.name):"Начать тренировку"}</h2>
@@ -267,7 +264,7 @@
         <div class="container">
           <div class="screen-title"><div class="kicker">Рабочий экран</div><h1>Тренировка</h1><p class="subtitle" style="margin-top:7px">Здесь проходит вся тренировка — без лишних экранов.</p></div>
           <div class="stack">
-            <button class="button button--primary" data-act="start-empty">Начать пустую</button>
+            <button class="button button--primary" data-act="start-scheduled">Выбрать шаблон</button>
             ${db.templates.slice(0,3).map(t=>`<button class="card list-card workout-preview" data-act="start-template" data-id="${t.id}"><span class="workout-preview__icon">＋</span><span class="workout-preview__main"><b>${esc(t.name)}</b><span>${t.exerciseIds.length} упражнений</span></span><span>›</span></button>`).join("")}
           </div>
           <div class="section-head"><h2>Что получаетшся</h2></div>
@@ -328,10 +325,16 @@
         <div class="section-head"><h2>Замеры</h2></div>
         <div class="form-grid">
           <div class="field"><label>Вес (${weightLabel()})</label><input id="body-weight" inputmode="decimal" value="${last?toDisplayWeight(last.weight):""}" placeholder="—"></div>
-          <div class="field"><label>Талия (см)</label><input id="body-waist" inputmode="decimal" value="${last?.waist??""}" placeholder="—"></div>
+          <div class="field"><label>Рост (см)</label><input id="body-height" inputmode="numeric" value="${last?.height??""}" placeholder="—"></div>
         </div>
         <button class="button button--primary" data-act="save-metrics" style="margin-top:9px">Сохранить замеры</button>
 
+        <div class="section-head"><h2>Расписание тренировок</h2></div>
+        <div class="schedule-editor card">
+          <div class="segmented"><button class="${(db.settings.schedule?.mode||"weekly")==="weekly"?"active":""}" data-act="schedule-mode" data-mode="weekly">По дням</button><button class="${db.settings.schedule?.mode==="interval"?"active":""}" data-act="schedule-mode" data-mode="interval">Через интервал</button></div>
+          ${(db.settings.schedule?.mode||"weekly")==="weekly"?`<div class="schedule-list">${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d,i)=>`<div class="schedule-row"><span class="schedule-day">${d}</span><select data-schedule-day="${i}"><option value="">Отдых</option>${db.templates.map(t=>`<option value="${t.id}" ${db.settings.schedule?.weekly?.[i]===t.id?"selected":""}>${esc(t.name)}</option>`).join("")}</select></div>`).join("")}</div><p class="schedule-note">Назначь отдельный шаблон на каждый день. Пустой день остаётся днём отдыха.</p>`:`<div class="interval-settings"><div class="field field--compact"><label>Интервал</label><select id="interval-days">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${Number(db.settings.schedule?.intervalDays||2)===n?"selected":""}>Каждые ${n} ${plural(n,"день","дня","дней")}</option>`).join("")}</select></div><div class="field field--compact"><label>Начало цикла</label><input id="interval-start" type="date" value="${db.settings.schedule?.intervalStart||today()}"></div></div><div class="section-head section-head--inner"><h2>Порядок чередования</h2></div><div class="schedule-list">${[0,1,2,3].map(i=>`<div class="schedule-row"><span class="schedule-day">${i+1}</span><select data-interval-order="${i}"><option value="">—</option>${db.templates.map(t=>`<option value="${t.id}" ${db.settings.schedule?.intervalOrder?.[i]===t.id?"selected":""}>${esc(t.name)}</option>`).join("")}</select></div>`).join("")}</div><p class="schedule-note">Например: Грудь + спина → Ноги → Плечи. Цикл повторяется по кругу.</p>`}
+          <button class="button button--secondary" data-act="save-schedule">Сохранить расписание</button>
+        </div>
         <div class="section-head"><h2>Настройки</h2></div>
         <div class="stack">
           <div class="field"><label>Тема</label><select id="theme"><option value="dark" ${db.settings.theme==="dark"?"selected":""}>Тёмная</option><option value="light" ${db.settings.theme==="light"?"selected":""}>Светлая</option></select></div>
@@ -380,7 +383,8 @@
       <button class="button button--primary" style="margin-top:10px" data-act="create-exercise">Сохранить</button>`);
   }
 
-  function showNewTemplate(){
+  function showNewTemplate(){ showTemplateEditor(); return; }
+  function showNewTemplateLegacy(){
     openSheet(`
       <div class="sheet__title">Новый план</div>
       <div class="field" style="margin-top:10px"><label>Название</label><input id="template-name" placeholder="Например, Push"></div>
@@ -390,6 +394,37 @@
     $("#sheet")._selected=new Set();
   }
 
+  function showTemplateManager(){
+    openSheet(`
+      <div class="sheet__title">Шаблоны тренировок</div>
+      <div class="subtitle">Создание, редактирование и управление готовыми тренировками.</div>
+      <div class="template-manager">${db.templates.map(t=>`<div class="template-row"><div class="template-row__icon">${esc((t.name||"Т").slice(0,1).toUpperCase())}</div><div class="template-row__main"><b>${esc(t.name)}</b><span>${t.exerciseIds.length} упражнений</span></div><button class="icon-button" data-act="edit-template" data-id="${t.id}">✎</button><button class="icon-button icon-button--danger" data-act="delete-template" data-id="${t.id}">×</button></div>`).join("")}</div>
+      <div class="stack" style="margin-top:14px"><button class="button button--primary" data-act="new-template">＋ Создать шаблон</button><button class="button button--secondary" data-act="close-sheet">Готово</button></div>`);
+  }
+  function showTemplateEditor(templateId=null){
+    const t=templateId?db.templates.find(x=>x.id===templateId):null, selected=new Set(t?.exerciseIds||[]);
+    openSheet(`
+      <div class="sheet__title">${t?"Редактировать шаблон":"Новый шаблон"}</div>
+      <div class="field" style="margin-top:10px"><label>Название тренировки</label><input id="template-name" placeholder="Например, Грудь + спина" value="${esc(t?.name||"")}"></div>
+      <div class="section-head section-head--inner"><h2>Упражнения</h2><span class="count-badge" id="template-count">${selected.size}</span></div>
+      <div class="exercise-list template-picks">${[...db.exercises].sort((a,b)=>a.name.localeCompare(b.name,"ru")).map(e=>`<button class="exercise-item template-pick ${selected.has(e.id)?"is-picked":""}" data-act="toggle-template-ex" data-id="${e.id}"><span class="exercise-item__main"><b>${esc(e.name)}</b><span>${muscle(e.muscle)}</span></span><span class="pick-mark" data-mark="${e.id}">${selected.has(e.id)?"✓":"+"}</span></button>`).join("")}</div>
+      <div class="stack" style="margin-top:12px"><button class="button button--primary" data-act="save-template" data-id="${templateId||""}">${t?"Сохранить изменения":"Создать шаблон"}</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
+    $("#sheet")._selected=selected;
+  }
+  function showSchedulePicker(){
+    openSheet(`<div class="sheet__title">На сегодня нет плана</div><div class="subtitle">Выбери шаблон сейчас или настрой постоянное расписание в профиле.</div><div class="stack" style="margin-top:14px">${db.templates.map(t=>`<button class="card list-card workout-preview" data-act="start-template" data-id="${t.id}"><span class="workout-preview__icon">↗</span><span class="workout-preview__main"><b>${esc(t.name)}</b><span>${t.exerciseIds.length} упражнений</span></span><span>›</span></button>`).join("")}</div><button class="button button--secondary" style="margin-top:10px" data-act="open-profile-schedule">Настроить расписание</button>`);
+  }
+  function saveTemplate(templateId){
+    const name=$("#template-name")?.value?.trim(), selected=[...($("#sheet")._selected||[])];
+    if(!name||!selected.length){toast(!name?"Введи название":"Добавь хотя бы одно упражнение");return}
+    if(templateId){const t=db.templates.find(x=>x.id===templateId);if(t){t.name=name;t.exerciseIds=selected;}} else db.templates.unshift({id:uid(),name,exerciseIds:selected});
+    save();showTemplateManager();toast(templateId?"Шаблон обновлён":"Шаблон создан");
+  }
+  function saveSchedule(){
+    const s=db.settings.schedule||{};
+    if(s.mode==="interval"){s.intervalDays=Math.max(1,Math.min(14,Number($("#interval-days")?.value)||2));s.intervalStart=$("#interval-start")?.value||today();s.intervalOrder=[0,1,2,3].map(i=>$(`[data-interval-order="${i}"]`)?.value||"").filter(Boolean);if(!s.intervalOrder.length){toast("Добавь шаблон в цикл");return}} else {s.weekly={};$("[data-schedule-day]").forEach(el=>{if(el.value)s.weekly[el.dataset.scheduleDay]=el.value;});}
+    db.settings.schedule=s;save();renderProfile();toast("Расписание сохранено");
+  }
   function showWorkoutDetail(id){
     const w=db.workouts.find(x=>x.id===id); if(!w)return;
     openSheet(`
@@ -404,7 +439,7 @@
     const raw=$("#body-weight").value, weight=fromDisplayWeight(raw);
     if(weight===""){toast("Введи вес");return}
     const n=id=>{const v=$(id)?.value?.replace(",",".")??""; return v===""?"":Number(v)};
-    db.metrics.push({date:today(),weight,waist:n("#body-waist")}); save(); toast("Замеры сохранены"); renderProfile();
+    db.metrics.push({date:today(),weight,height:n("#body-height")}); save(); toast("Замеры сохранены"); renderProfile();
   }
   function saveSettings(){
     db.settings.theme=$("#theme").value;
@@ -438,10 +473,10 @@
     const act=e.target.closest("[data-act]"); if(!act)return;
     const a=act.dataset.act, id=act.dataset.id;
 
-    if(a==="start-empty"||a==="continue-workout"){startEmpty();return}
+    if(a==="start-scheduled"){startScheduled();return} if(a==="continue-workout"){setTab("workout");return}
     if(a==="start-template"){startTemplate(id);return}
     if(a==="open-workout"){showWorkoutDetail(id);return}
-    if(a==="new-template"){showNewTemplate();return}
+    if(a==="manage-templates"){showTemplateManager();return} if(a==="new-template"){showTemplateEditor();return} if(a==="edit-template"){showTemplateEditor(id);return} if(a==="delete-template"){db.templates=db.templates.filter(t=>t.id!==id);save();showTemplateManager();toast("Шаблон удалён");return}
     if(a==="close-sheet"){closeSheet();return}
     if(a==="add-exercise"){showAddExercise();return}
     if(a==="add-ex"){addExercise(id);return}
@@ -450,7 +485,7 @@
     if(a==="use-exercise"){ if(db.activeWorkout)addExercise(id);else{closeSheet();ensureWorkout();addExercise(id)} return}
     if(a==="new-exercise"){showNewExercise();return}
     if(a==="create-exercise"){createExercise();return}
-    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);const mark=document.querySelector(`[data-mark="${id}"]`);if(mark)mark.textContent=set.has(id)?"✓":"";return}
+    if(a==="toggle-template-ex"){const set=$("#sheet")._selected;if(!set)return;set.has(id)?set.delete(id):set.add(id);const item=act.closest(".template-pick"),mark=act.querySelector("[data-mark]")||document.querySelector(`[data-mark="${id}"]`);item?.classList.toggle("is-picked",set.has(id));if(mark)mark.textContent=set.has(id)?"✓":"+";const count=$("#template-count");if(count)count.textContent=set.size;return} if(a==="save-template"){saveTemplate(id||null);return} if(a==="schedule-mode"){db.settings.schedule.mode=act.dataset.mode;save();renderProfile();return} if(a==="save-schedule"){saveSchedule();return} if(a==="open-profile-schedule"){closeSheet();setTab("profile");return}
     if(a==="create-template"){createTemplate();return}
     if(a==="toggle-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===act.dataset.ex), s=ex?.sets.find(x=>x.id===act.dataset.set); if(!s)return;
