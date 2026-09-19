@@ -136,7 +136,7 @@
     db.activeWorkout={id:uid(),name:"Тренировка",startedAt:Date.now(),exercises:[]};
     save(); return db.activeWorkout;
   }
-  function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; const dow=(new Date(date).getDay()+6)%7; return db.templates.find(t=>t.id===s.weekly?.[dow])||null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
+  function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; if(s.mode==="interval" && s.intervalOrder?.length){ const start=new Date((s.intervalStart||today())+"T12:00:00"), cur=new Date(date); cur.setHours(12,0,0,0); const diff=Math.floor((cur-start)/86400000), every=Math.max(1,Number(s.intervalDays)||2); if(diff>=0 && diff%every===0) return db.templates.find(t=>t.id===s.intervalOrder[(Math.floor(diff/every))%s.intervalOrder.length])||null; return null; } const dow=(new Date(date).getDay()+6)%7; return db.templates.find(t=>t.id===s.weekly?.[dow])||null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
     if(db.activeWorkout){setTab("workout");toast("Сначала заверши текущую тренировку");return}
     const t=db.templates.find(x=>x.id===id); if(!t)return;
     const w=ensureWorkout(); w.name=t.name; w.exercises=t.exerciseIds.map(makeWorkoutExercise).filter(Boolean);
@@ -191,9 +191,9 @@
         </div>
         <button class="card hero-cta" data-act="${active?"continue-workout":"start-scheduled"}">
           <div class="hero-cta__copy">
-            <div class="kicker">${active?"В ПРОЦЕССЕ":"БЫСТРЫЙ СТАРТ"}</div>
+            <div class="kicker">${active?"В ПРОЦЕССЕ":"СЕГОДНЯ ПО ПЛАНУ"}</div>
             <h2>${active?esc(active.name):"Начать тренировку"}</h2>
-            <p>${active?"Продолжить с последнего подхода":"Пустая тренировка с умными подсказками по прошлым результатам"}</p>
+            <p>${active?esc(active.name):esc(scheduledTemplateFor()?.name||"Выбери шаблон тренировки")}</p>
           </div>
           <span class="hero-cta__button">→</span>
         </button>
@@ -201,7 +201,7 @@
         <div class="stats">
           <div class="card stat"><span class="stat__label">Тренировки</span><strong class="stat__value">${count}</strong><span class="stat__hint">за неделю</span></div>
           <div class="card stat"><span class="stat__label">Подходы</span><strong class="stat__value">${last?doneSets(last):"—"}</strong><span class="stat__hint">в последней</span></div>
-          <div class="card stat"><span class="stat__label">Вес</span><strong class="stat__value">${metric?toDisplayWeight(metric.weight):"—"}</strong><span class="stat__hint">${metric?weightLabel():"добавь"} </span></div>
+          <div class="card stat"><span class="stat__label">Вес</span><strong class="stat__value">${metric?toDisplayWeight(metric.weight):"—"}</strong><span class="stat__hint">${metric?weightLabel():"профиль"} </span></div>
         </div>
 
         <div class="card progress-card">
@@ -210,7 +210,7 @@
           <div class="progress-card__foot">${count>=goal?"Цель выполнена":"Ещё "+(goal-count)+" "+plural(goal-count,"тренировка","тренировки","тренировок")}</div>
         </div>
 
-        <div class="section-head"><h2>Планы</h2><button class="link" data-act="new-template">Создать</button></div>
+        <div class="section-head"><h2>Планы</h2><button class="link" data-act="manage-templates">Управлять</button></div>
         <div class="plans">
           ${db.templates.map(t=>`<button class="plan" data-act="start-template" data-id="${t.id}"><span class="plan__tag">ПЛАН</span><h3>${esc(t.name)}</h3><p>${t.exerciseIds.length} упражнений · открыть</p></button>`).join("")}
         </div>
