@@ -38,10 +38,10 @@
   };
 
   function createSeed(){
-    const exercises=DEFAULTS.map(([name,m])=>({id:uid(),name,muscle:m,custom:false}));
+    const exercises=DEFAULTS.map(([name,m])=>({id:uid(),name,muscle:m,custom:false,description:""}));
     const id=n=>exercises.find(e=>e.name===n)?.id;
     return {
-      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()}},
+      settings:{theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,soundEnabled:true,vibrationEnabled:true,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()}},
       exercises,
       templates:[
         {id:uid(),name:"Грудь + трицепс",exerciseIds:["Жим штанги лёжа","Жим гантелей лёжа","Разведения гантелей","Французский жим","Разгибания на блоке"].map(id)},
@@ -57,7 +57,7 @@
       const raw=localStorage.getItem(KEY);
       if(!raw) return createSeed();
       const d=JSON.parse(raw);
-      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()},...(d.settings||{})}; d.settings.schedule={mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today(),...(d.settings.schedule||{})};
+      d.settings={theme:"dark",restSeconds:90,units:"kg",weeklyGoal:3,soundEnabled:true,vibrationEnabled:true,schedule:{mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today()},...(d.settings||{})}; d.settings.schedule={mode:"weekly",weekly:{},intervalDays:2,intervalOrder:[],intervalStart:today(),...(d.settings.schedule||{})};
       d.exercises=Array.isArray(d.exercises)&&d.exercises.length?d.exercises:createSeed().exercises;
       d.templates=Array.isArray(d.templates)?d.templates:[];
       d.workouts=Array.isArray(d.workouts)?d.workouts:[];
@@ -112,8 +112,11 @@
     const n=Number(v); return Number.isNaN(n)?"":db.settings.units==="lbs"?round(n*2.20462262,1):round(n,2);
   }
   function fromDisplayWeight(v){
-    if(v==="") return "";
-    const n=Number(String(v).replace(",",".")); if(Number.isNaN(n))return "";
+    if(v===""||v==null) return "";
+    let raw=String(v).trim().replace(/\s/g,"");
+    if(raw.includes(",")&&raw.includes(".")){raw=raw.lastIndexOf(",")>raw.lastIndexOf(".")?raw.replace(/\./g,"").replace(",","."):raw.replace(/,/g,"");}
+    else raw=raw.replace(",",".");
+    const n=Number(raw); if(!Number.isFinite(n))return "";
     return db.settings.units==="lbs"?n/2.20462262:n;
   }
   function volume(w){
@@ -140,6 +143,7 @@
     save(); return db.activeWorkout;
   }
   function scheduledTemplateFor(date=new Date()){ const s=db.settings.schedule||{}; if(s.mode==="interval" && s.intervalOrder?.length){ const start=new Date((s.intervalStart||today())+"T12:00:00"), cur=new Date(date); cur.setHours(12,0,0,0); const diff=Math.floor((cur-start)/86400000), every=Math.max(1,Number(s.intervalDays)||2); if(diff>=0 && diff%every===0) return db.templates.find(t=>t.id===s.intervalOrder[(Math.floor(diff/every))%s.intervalOrder.length])||null; return null; } const dow=(new Date(date).getDay()+6)%7; return db.templates.find(t=>t.id===s.weekly?.[dow])||null; } function startScheduled(){ const t=scheduledTemplateFor(); if(t){startTemplate(t.id);return} showSchedulePicker(); } function startTemplate(id){
+    closeSheet();
     if(db.activeWorkout){setTab("workout");toast("Сначала заверши текущую тренировку");return}
     const t=db.templates.find(x=>x.id===id); if(!t)return;
     const w=ensureWorkout(); w.name=t.name; w.exercises=t.exerciseIds.map(id=>makeWorkoutExercise(id,t.exerciseConfig?.[id]||null)).filter(Boolean);
@@ -158,8 +162,20 @@
   function startRest(){
     stopRest();
     state.restTotal=Number(db.settings.restSeconds)||90; state.restLeft=state.restTotal;
-    const tick=()=>{state.restLeft--; renderRest(); if(state.restLeft<=0){stopRest();toast("Отдых закончен");}};
+    const tick=()=>{state.restLeft--; renderRest(); if(state.restLeft<=0){stopRest();notifyRestEnd();toast("Отдых закончен");}};
     state.restTimer=setInterval(tick,1000); renderRest();
+  }
+  function notifyRestEnd(){
+    if(db.settings.soundEnabled!==false){
+      try{
+        const C=window.AudioContext||window.webkitAudioContext; if(C){
+          const ctx=window.__trainerAudio||(window.__trainerAudio=new C());
+          ctx.resume?.(); const now=ctx.currentTime;
+          [0,0.16].forEach((delay,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=i?880:660;g.gain.setValueAtTime(.0001,now+delay);g.gain.exponentialRampToValueAtTime(.16,now+delay+.015);g.gain.exponentialRampToValueAtTime(.0001,now+delay+.13);o.connect(g);g.connect(ctx.destination);o.start(now+delay);o.stop(now+delay+.14);});
+        }
+      }catch(e){}
+    }
+    if(db.settings.vibrationEnabled!==false&&navigator.vibrate) navigator.vibrate([180,80,180]);
   }
   function stopRest(){
     if(state.restTimer)clearInterval(state.restTimer);
@@ -296,7 +312,7 @@
     const prev=lastSets(ex.exerciseId,db.activeWorkout?.startedAt);
     const prevText=prev.length?"Прошлый раз: "+prev.map(s=>`${toDisplayWeight(s.weight)}×${s.reps}`).join(" · "):"Нет прошлых данных";
     return `<div class="card detail" data-ex="${ex.id}">
-      <div class="detail__head"><div><div class="detail__name">${esc(ex.name)}</div><div class="detail__meta">${prevText}</div></div><button class="link" data-act="exercise-history" data-eid="${ex.exerciseId}">История</button></div>
+      <div class="detail__head"><div><div class="detail__name">${esc(ex.name)}</div><div class="detail__meta">${prevText}</div>${findExercise(ex.exerciseId)?.description?`<div class="exercise-description exercise-description--compact"><p>${esc(findExercise(ex.exerciseId).description)}</p></div>`:""}</div><button class="link" data-act="exercise-history" data-eid="${ex.exerciseId}">История</button></div>
       <div class="set-table"><div class="set-head"><span>#</span><span>Вес</span><span>Повт.</span><span></span></div>
       ${ex.sets.map(s=>`<div class="set-row"><div class="set-num">${s.n}</div>
         <input type="number" step="0.5" min="0" inputmode="decimal" data-kind="weight" data-ex="${ex.id}" data-set="${s.id}" value="${s.weight===""?"":toDisplayWeight(s.weight)}" placeholder="—">
@@ -342,7 +358,7 @@
         <div class="stack">
           <div class="field"><label>Тема</label><select id="theme"><option value="dark" ${db.settings.theme==="dark"?"selected":""}>Тёмная</option><option value="light" ${db.settings.theme==="light"?"selected":""}>Светлая</option></select></div>
           <div class="field"><label>Отдых между подходами, сек</label><input id="rest-sec" inputmode="numeric" value="${db.settings.restSeconds}"></div>
-          <div class="field"><label>Цель тренировок в неделю</label><input id="weekly-goal" inputmode="numeric" value="${db.settings.weeklyGoal}"></div>
+          <div class="field"><label>Цель тренировок в неделю</label><input id="weekly-goal" inputmode="numeric" value="${db.settings.weeklyGoal}"></div><div class="settings-toggle"><label><span><b>Звук окончания отдыха</b><small>Короткий сигнал, когда таймер закончился</small></span><input id="sound-enabled" type="checkbox" ${db.settings.soundEnabled!==false?"checked":""}></label><label><span><b>Вибрация окончания отдыха</b><small>Вибросигнал на поддерживаемых устройствах</small></span><input id="vibration-enabled" type="checkbox" ${db.settings.vibrationEnabled!==false?"checked":""}></label></div>
           <button class="button button--secondary" data-act="save-settings">Сохранить настройки</button>
         </div>
 
@@ -360,13 +376,18 @@
     const rows=db.workouts.filter(w=>w.exercises?.some(x=>x.exerciseId===id)).slice(0,8);
     openSheet(`
       <div class="sheet__title">${esc(e.name)}</div>
-      <div class="subtitle">${muscle(e.muscle)} · ${e.custom?"своё упражнение":"базовое"}</div>
+      <div class="subtitle">${muscle(e.muscle)} · ${e.custom?"своё упражнение":"базовое"}</div>${e.description?`<div class="exercise-description"><div class="kicker">Техника</div><p>${esc(e.description)}</p></div>`:`<div class="empty-state" style="margin-top:12px">Описание техники пока не добавлено.</div>`}<div class="stack" style="margin-top:10px"><button class="button button--secondary" data-act="edit-exercise-description" data-id="${id}">Изменить описание</button></div>
       <div class="section-head" style="margin-top:18px"><h2>История</h2></div>
       ${rows.length?rows.map(w=>{const ex=w.exercises.find(x=>x.exerciseId===id);return `<div class="rec-card" style="margin-bottom:8px"><b>${fmtDate(w.finishedAt)}</b><span>${ex.sets.filter(s=>s.done).map(s=>`${toDisplayWeight(s.weight)} × ${s.reps}`).join(" · ")||"Нет выполненных подходов"}</span></div>`}).join(""):`<div class="empty-state">Истории ещё нет.</div>`}
       <div class="stack" style="margin-top:12px">
         <button class="button button--primary" data-act="use-exercise" data-id="${id}">${db.activeWorkout?"Добавить в текущую":"Начать с этого упражнения"}</button>
         <button class="button button--secondary" data-act="close-sheet">Закрыть</button>
       </div>`);
+  }
+
+    function editExerciseDescription(id){
+    const e=findExercise(id); if(!e)return;
+    openSheet(`<div class="sheet__title">Описание упражнения</div><div class="subtitle">${esc(e.name)}</div><div class="field" style="margin-top:12px"><label>Как выполнять</label><textarea id="exercise-description" rows="7" placeholder="Опиши технику и важные нюансы…">${esc(e.description||"")}</textarea></div><div class="stack" style="margin-top:10px"><button class="button button--primary" data-act="save-exercise-description" data-id="${id}">Сохранить</button><button class="button button--secondary" data-act="close-sheet">Отмена</button></div>`);
   }
 
   function showAddExercise(){
@@ -382,7 +403,7 @@
     openSheet(`
       <div class="sheet__title">Новое упражнение</div>
       <div class="field" style="margin-top:10px"><label>Название</label><input id="new-ex-name" placeholder="Например, жим в хаммере"></div>
-      <div class="field" style="margin-top:9px"><label>Мышечная группа</label><select id="new-ex-muscle">${MUSCLES.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("")}</select></div>
+      <div class="field" style="margin-top:9px"><label>Мышечная группа</label><select id="new-ex-muscle">${MUSCLES.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("")}</select></div><div class="field" style="margin-top:9px"><label>Как выполнять</label><textarea id="new-ex-description" rows="4" placeholder="Техника, дыхание, положение корпуса, важные нюансы…"></textarea></div>
       <button class="button button--primary" style="margin-top:10px" data-act="create-exercise">Сохранить</button>`);
   }
 
@@ -467,13 +488,13 @@
   function saveSettings(){
     db.settings.theme=$("#theme").value;
     db.settings.restSeconds=Math.max(15,Number($("#rest-sec").value)||90);
-    db.settings.weeklyGoal=Math.max(1,Math.min(14,Number($("#weekly-goal").value)||3));
+    db.settings.weeklyGoal=Math.max(1,Math.min(14,Number($("#weekly-goal").value)||3)); db.settings.soundEnabled=$("#sound-enabled").checked; db.settings.vibrationEnabled=$("#vibration-enabled").checked;
     save(); applyTheme(); toast("Настройки сохранены"); render();
   }
   function createExercise(){
     const name=$("#new-ex-name")?.value?.trim(), m=$("#new-ex-muscle")?.value;
     if(!name){toast("Введи название");return}
-    db.exercises.push({id:uid(),name,muscle:m,custom:true});save();closeSheet();toast("Упражнение создано");renderExercises();
+    db.exercises.push({id:uid(),name,muscle:m,custom:true,description:$("#new-ex-description")?.value?.trim()||""});save();closeSheet();toast("Упражнение создано");renderExercises();
   }
   function createTemplate(){
     const name=$("#template-name")?.value?.trim(), selected=[...($("#sheet")._selected||[])];
@@ -503,7 +524,7 @@
     if(a==="close-sheet"){closeSheet();return}
     if(a==="add-exercise"){showAddExercise();return}
     if(a==="add-ex"){addExercise(id);return}
-    if(a==="exercise-info"){showExerciseInfo(id);return}
+    if(a==="exercise-info"){showExerciseInfo(id);return} if(a==="edit-exercise-description"){editExerciseDescription(id);return} if(a==="save-exercise-description"){const e=findExercise(id);if(e){e.description=$("#exercise-description")?.value?.trim()||"";save();showExerciseInfo(id);toast("Описание сохранено")}return}
     if(a==="exercise-history"){showExerciseInfo(act.dataset.eid);return}
     if(a==="use-exercise"){ if(db.activeWorkout)addExercise(id);else{closeSheet();ensureWorkout();addExercise(id)} return}
     if(a==="new-exercise"){showNewExercise();return}
@@ -512,7 +533,7 @@
     if(a==="create-template"){createTemplate();return}
     if(a==="toggle-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===act.dataset.ex), s=ex?.sets.find(x=>x.id===act.dataset.set); if(!s)return;
-      s.done=!s.done;save();if(s.done){if(navigator.vibrate)navigator.vibrate(10);startRest()}else stopRest();renderWorkout();return;
+      s.done=!s.done;save();if(s.done){if(db.settings.vibrationEnabled!==false&&navigator.vibrate)navigator.vibrate(10);startRest()}else stopRest();renderWorkout();return;
     }
     if(a==="add-set"){
       const ex=db.activeWorkout?.exercises.find(x=>x.id===id);if(!ex)return;const last=ex.sets.at(-1);ex.sets.push({id:uid(),n:ex.sets.length+1,weight:last?.weight??"",reps:last?.reps??"",done:false});save();renderWorkout();return;
