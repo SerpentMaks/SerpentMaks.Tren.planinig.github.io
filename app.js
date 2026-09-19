@@ -178,10 +178,16 @@
   function showRestTimer(){const left=Math.max(0,state.restLeft),total=Math.max(1,state.restTotal);openSheet('<div class="rest-timer-sheet"><div class="kicker">ОТДЫХ МЕЖДУ ПОДХОДАМИ</div><div class="rest-timer-value" id="rest-modal-value">'+fmtTime(left)+'</div><div class="rest-timer-progress"><span id="rest-modal-progress" style="width:'+Math.max(0,Math.min(100,(left/total)*100))+'%"></span></div><p>Следующий подход — когда будешь готов.</p><button class="button button--primary rest-skip" data-act="skip-rest">Пропустить отдых</button></div>');}
   function closeRestTimer(){const el=$("#sheet");if(el?.classList.contains("is-rest-timer"))closeSheet();}
   function renderRest(){
-    const pill=$("#active-pill"); if(!pill)return;
-    if(state.restLeft>0){pill.textContent="Отдых "+fmtTime(state.restLeft);pill.classList.remove("is-hidden")}
-    else if(db.activeWorkout){pill.textContent="Тренировка "+fmtTime((Date.now()-db.activeWorkout.startedAt)/1000);pill.classList.remove("is-hidden")}
-    else pill.classList.add("is-hidden");
+    const pill=$("#active-pill");
+    if(pill){
+      if(state.restLeft>0){pill.textContent="Отдых "+fmtTime(state.restLeft);pill.classList.remove("is-hidden")}
+      else if(db.activeWorkout){pill.textContent="Тренировка "+fmtTime((Date.now()-db.activeWorkout.startedAt)/1000);pill.classList.remove("is-hidden")}
+      else pill.classList.add("is-hidden");
+    }
+    const modalVal=$("#rest-modal-value")||$("#rest-modal-val");
+    if(modalVal) modalVal.textContent=fmtTime(state.restLeft);
+    const progress=$("#rest-modal-progress");
+    if(progress) progress.style.width=Math.max(0,Math.min(100,(state.restLeft/Math.max(1,state.restTotal))*100))+"%";
   }
 
   function render(){
@@ -480,10 +486,16 @@
   }
 
   function saveMetrics(){
-    const raw=$("#body-weight").value, weight=fromDisplayWeight(raw);
-    if(weight===""){toast("Введи вес");return}
-    const n=id=>{const v=$(id)?.value?.replace(",",".")??""; return v===""?"":Number(v)};
-    db.metrics.push({date:today(),weight,height:n("#body-height")}); save(); toast("Замеры сохранены"); renderProfile();
+    const raw=String($("#body-weight")?.value??"").trim().replace(/,/g,".");
+    const parsed=raw===""?NaN:Number.parseFloat(raw);
+    if(!Number.isFinite(parsed)||parsed<=0){toast("Введи корректный вес");return}
+    const weight=db.settings.units==="lbs"?parsed/2.20462262:parsed;
+    const heightRaw=String($("#body-height")?.value??"").trim().replace(/,/g,".");
+    const height=heightRaw===""?"":Number.parseFloat(heightRaw);
+    const metric={date:today(),weight:Number(weight),height:Number.isFinite(height)?height:""};
+    const existing=db.metrics.findIndex(m=>m.date===today());
+    if(existing>=0) db.metrics[existing]=metric; else db.metrics.push(metric);
+    save(); toast("Замеры сохранены"); renderProfile();
   }
   function saveSettings(){
     db.settings.theme=$("#theme").value;
